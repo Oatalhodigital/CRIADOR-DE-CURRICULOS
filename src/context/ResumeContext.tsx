@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Resume, PersonalInfo, Experience, Education, Skill } from '../types/resume';
+import { saveDraft } from '../services/firebase';
 
 interface ResumeContextType {
   resume: Resume;
@@ -15,6 +16,7 @@ interface ResumeContextType {
   removeSkill: (id: string) => void;
   updateSummary: (summary: string) => void;
   setPaymentStatus: (paid: boolean, paymentId?: string) => void;
+  setDraftId: (id: string) => void;
 }
 
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
@@ -39,6 +41,36 @@ const initialResume: Resume = {
 
 export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [resume, setResume] = useState<Resume>(initialResume);
+  const [draftId, setDraftIdState] = useState<string | null>(null);
+  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // Auto-save to Firestore on any change
+  useEffect(() => {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        if (resume.personalInfo.email || resume.personalInfo.fullName) {
+          const savedDraftId = await saveDraft(resume);
+          if (savedDraftId && !draftId) {
+            setDraftIdState(savedDraftId);
+          }
+        }
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    }, 2000); // Debounce save for 2 seconds
+
+    setSaveTimeout(timeout);
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [resume, draftId]);
 
   const updatePersonalInfo = (info: PersonalInfo) => {
     setResume(prev => ({ ...prev, personalInfo: info }));
@@ -119,6 +151,11 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }));
   };
 
+  const setDraftId = (id: string) => {
+    setDraftIdState(id);
+    setResume(prev => ({ ...prev, id }));
+  };
+
   return (
     <ResumeContext.Provider
       value={{
@@ -135,6 +172,7 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         removeSkill,
         updateSummary,
         setPaymentStatus,
+        setDraftId,
       }}
     >
       {children}
