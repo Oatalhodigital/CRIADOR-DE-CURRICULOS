@@ -76,7 +76,7 @@ const SkillsForm: React.FC<{ onFocusTip?: (tip: string) => void }> = ({ onFocusT
               value={newSkill.name}
               onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })}
               onFocus={() => onFocusTip?.('Coloque de 5 a 7 competências que tenham relação direta com a vaga que você deseja.')}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 text-gray-700 shadow-sm placeholder-gray-400"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all duration-200 text-gray-700 shadow-sm placeholder-gray-400"
             />
           </div>
           
@@ -85,7 +85,7 @@ const SkillsForm: React.FC<{ onFocusTip?: (tip: string) => void }> = ({ onFocusT
             <select
               value={newSkill.level}
               onChange={(e) => setNewSkill({ ...newSkill, level: e.target.value as Skill['level'] })}
-              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all duration-300 text-gray-900"
+              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all duration-300 text-gray-900"
             >
               <option value="Beginner">Iniciante</option>
               <option value="Intermediate">Intermediário</option>

@@ -64,13 +64,13 @@ const ResumeBuilder = () => {
   return (
     <div className="h-screen overflow-hidden bg-gray-50 flex flex-col lg:flex-row">
       {/* Left Panel - Form (50%) */}
-      <div className="w-full lg:w-1/2 h-full flex flex-col bg-white border-r border-gray-100 shadow-sm">
+      <div className="w-full lg:w-1/2 h-full flex flex-col bg-white border-r border-gray-200">
         {/* Brand Header */}
-        <div className="px-8 py-6 border-b border-gray-100 flex-shrink-0">
+        <div className="px-8 py-6 border-b border-gray-200 flex-shrink-0 bg-white">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">LS - Soluções Digitais</p>
-              <h1 className="text-xl font-bold text-gray-900">Criador de Currículos Profissional</h1>
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-1">LS - Soluções Digitais</p>
+              <h1 className="text-2xl font-bold text-gray-900">Criador de Currículos</h1>
             </div>
             {/* Template Selector */}
             <div className="flex gap-2">
@@ -78,7 +78,7 @@ const ResumeBuilder = () => {
                 onClick={() => setActiveTemplate('classic')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeTemplate === 'classic'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -89,7 +89,7 @@ const ResumeBuilder = () => {
                 onClick={() => setActiveTemplate('modern')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeTemplate === 'modern'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -100,7 +100,7 @@ const ResumeBuilder = () => {
                 onClick={() => setActiveTemplate('minimalist')}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeTemplate === 'minimalist'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -125,9 +125,9 @@ const ResumeBuilder = () => {
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
                       completedSteps.has(index)
-                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
+                        ? 'bg-blue-500 text-white shadow-md'
                         : index === currentStep
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 ring-4 ring-indigo-500/20'
+                        ? 'bg-blue-600 text-white shadow-md ring-4 ring-blue-500/20'
                         : 'bg-gray-200 text-gray-600'
                     }`}
                   >
@@ -139,7 +139,7 @@ const ResumeBuilder = () => {
                   </div>
                   <span
                     className={`text-xs font-medium transition-colors duration-300 ${
-                      index === currentStep ? 'text-indigo-600' : 'text-gray-600'
+                      index === currentStep ? 'text-blue-600' : 'text-gray-600'
                     }`}
                   >
                     {step.title}
@@ -148,7 +148,7 @@ const ResumeBuilder = () => {
                 {index < steps.length - 1 && (
                   <div
                     className={`flex-1 h-0.5 mx-4 transition-all duration-500 ${
-                      completedSteps.has(index) ? 'bg-green-500' : 'bg-gray-200'
+                      completedSteps.has(index) ? 'bg-blue-500' : 'bg-gray-200'
                     }`}
                   />
                 )}
@@ -181,7 +181,7 @@ const ResumeBuilder = () => {
                   onFocus={() => setCurrentTip('Escreva um parágrafo curto (3 a 4 linhas) destacando seus anos de experiência e sua maior especialidade.')}
                   placeholder="Descreva brevemente suas qualificações profissionais, objetivos de carreira e principais conquistas..."
                   rows={12}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 resize-none text-gray-700 shadow-sm placeholder-gray-400"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all duration-200 resize-none text-gray-700 shadow-sm placeholder-gray-400"
                 />
               </div>
             )}
@@ -189,12 +189,12 @@ const ResumeBuilder = () => {
 
           {/* Dynamic Tips Panel */}
           {currentTip && (
-            <div className="mb-8 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl">
+            <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
               <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+                <Sparkles className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-indigo-900 mb-1">Dica de Especialista</p>
-                  <p className="text-sm text-indigo-700 leading-relaxed">{currentTip}</p>
+                  <p className="text-sm font-semibold text-blue-900 mb-1">Dica de Especialista</p>
+                  <p className="text-sm text-blue-700 leading-relaxed">{currentTip}</p>
                 </div>
               </div>
             </div>
@@ -212,7 +212,7 @@ const ResumeBuilder = () => {
             <button
               onClick={handleNext}
               disabled={currentStep === steps.length - 1}
-              className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all duration-300 font-medium shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
+              className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-300 font-medium shadow-md disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
             >
               {currentStep === steps.length - 1 ? 'Finalizar' : 'Avançar'}
               <ArrowRight className="w-4 h-4" />

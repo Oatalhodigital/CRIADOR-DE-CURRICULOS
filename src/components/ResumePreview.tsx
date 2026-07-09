@@ -40,7 +40,7 @@ const ResumePreview: React.FC<{ onGeneratePDF: () => void }> = ({ onGeneratePDF 
       case 'classic':
         return 'text-center border-b-2 border-gray-900 pb-6';
       case 'modern':
-        return 'col-span-1 bg-gradient-to-br from-indigo-600 to-slate-800 text-white p-6 rounded-lg';
+        return 'col-span-1 bg-gradient-to-br from-blue-600 to-slate-800 text-white p-6 rounded-lg';
       case 'minimalist':
         return 'border-b border-gray-200 pb-4';
       default:
@@ -88,14 +88,14 @@ const ResumePreview: React.FC<{ onGeneratePDF: () => void }> = ({ onGeneratePDF 
           {!resume.paid && (
             <div className="absolute inset-0 flex flex-col items-center justify-center backdrop-blur-sm bg-white/40 z-10">
               <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-8 text-center border border-gray-200 shadow-2xl max-w-md mx-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/30">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
                   <Lock className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Design Profissional Pronto</h3>
                 <p className="text-gray-600 mb-4 text-sm leading-relaxed">
                   Libere a versão final sem marcas d'água por apenas R$ 8,98
                 </p>
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold text-sm shadow-lg shadow-indigo-500/20">
+                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/20">
                   <Sparkles className="w-4 h-4" />
                   R$ 8,98
                 </div>
