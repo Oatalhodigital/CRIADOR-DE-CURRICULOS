@@ -1,39 +1,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-:root {
-  --bg-deep: #0B0F19;
-  --bg-card: #111827;
-  --border-color: #1E293B;
-  --text-white: #FFFFFF;
-  --text-muted: #94A3B8;
-  --neon-blue: #00E5FF;
-  --neon-green: #00E676;
-}
-
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  
-  .resume-print-container,
-  .resume-print-container * {
-    visibility: visible;
-  }
-  
-  .resume-print-container {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    box-shadow: none;
-  }
-  
-  @page {
-    margin: 0;
-    size: auto;
-  }
-}
