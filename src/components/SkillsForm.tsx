@@ -3,7 +3,7 @@ import { Star, Plus, Trash2, Zap } from 'lucide-react';
 import { Skill } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
 
-const SkillsForm: React.FC = () => {
+const SkillsForm: React.FC<{ onFocusTip?: (tip: string) => void }> = ({ onFocusTip }) => {
   const { resume, addSkill, removeSkill } = useResume();
   const { skills } = resume;
 
@@ -75,6 +75,7 @@ const SkillsForm: React.FC = () => {
               placeholder="Ex: React, Python, Design Gráfico"
               value={newSkill.name}
               onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })}
+              onFocus={() => onFocusTip?.('Coloque de 5 a 7 competências que tenham relação direta com a vaga que você deseja.')}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 text-gray-700 shadow-sm placeholder-gray-400"
             />
           </div>

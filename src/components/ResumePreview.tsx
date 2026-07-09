@@ -4,7 +4,7 @@ import { Lock, Download, Sparkles, FileText } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
 const ResumePreview: React.FC<{ onGeneratePDF: () => void }> = ({ onGeneratePDF }) => {
-  const { resume } = useResume();
+  const { resume, activeTemplate } = useResume();
   const previewRef = useRef<HTMLDivElement>(null);
 
   const handleDownload = async () => {
@@ -20,6 +20,32 @@ const ResumePreview: React.FC<{ onGeneratePDF: () => void }> = ({ onGeneratePDF 
     };
 
     await html2pdf().set(opt).from(element).save();
+  };
+
+  const getTemplateClasses = () => {
+    switch (activeTemplate) {
+      case 'classic':
+        return 'text-center font-serif';
+      case 'modern':
+        return 'grid grid-cols-3 gap-6';
+      case 'minimalist':
+        return 'space-y-6';
+      default:
+        return '';
+    }
+  };
+
+  const getHeaderClasses = () => {
+    switch (activeTemplate) {
+      case 'classic':
+        return 'text-center border-b-2 border-gray-900 pb-6';
+      case 'modern':
+        return 'col-span-1 bg-gradient-to-br from-indigo-600 to-slate-800 text-white p-6 rounded-lg';
+      case 'minimalist':
+        return 'border-b border-gray-200 pb-4';
+      default:
+        return 'border-b-2 border-gray-900 pb-6';
+    }
   };
 
   return (
@@ -78,13 +104,13 @@ const ResumePreview: React.FC<{ onGeneratePDF: () => void }> = ({ onGeneratePDF 
           )}
 
           {/* Resume Content */}
-          <div className="space-y-8">
+          <div className={getTemplateClasses()}>
             {/* Header */}
-            <div className="border-b-2 border-gray-900 pb-6">
-              <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-4">
+            <div className={getHeaderClasses()}>
+              <h1 className="text-4xl font-bold tracking-tight mb-4">
                 {resume.personalInfo.fullName || 'Seu Nome'}
               </h1>
-              <div className="text-sm text-gray-600 space-y-1">
+              <div className="text-sm space-y-1">
                 <p className="flex items-center gap-2">
                   <span>{resume.personalInfo.email || 'email@exemplo.com'}</span>
                   <span className="text-gray-300">•</span>

@@ -3,7 +3,7 @@ import { Briefcase, Plus, Trash2, Building2 } from 'lucide-react';
 import { Experience } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
 
-const ExperienceForm: React.FC = () => {
+const ExperienceForm: React.FC<{ onFocusTip?: (tip: string) => void }> = ({ onFocusTip }) => {
   const { resume, addExperience, updateExperience, removeExperience } = useResume();
   const { experience } = resume;
 
@@ -78,6 +78,7 @@ const ExperienceForm: React.FC = () => {
               placeholder="Nome da empresa"
               value={newExperience.company}
               onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
+              onFocus={() => onFocusTip?.('Comece sempre da experiência mais recente. Use verbos de ação e mencione resultados.')}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 text-gray-700 shadow-sm placeholder-gray-400"
             />
           </div>

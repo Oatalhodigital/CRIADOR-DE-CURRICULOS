@@ -3,7 +3,7 @@ import { GraduationCap, Plus, Trash2, School } from 'lucide-react';
 import { Education } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
 
-const EducationForm: React.FC = () => {
+const EducationForm: React.FC<{ onFocusTip?: (tip: string) => void }> = ({ onFocusTip }) => {
   const { resume, addEducation, updateEducation, removeEducation } = useResume();
   const { education } = resume;
 
@@ -78,6 +78,7 @@ const EducationForm: React.FC = () => {
               placeholder="Nome da instituição"
               value={newEducation.institution}
               onChange={(e) => setNewEducation({ ...newEducation, institution: e.target.value })}
+              onFocus={() => onFocusTip?.('Inclua o nome completo da instituição. Se for internacional, mencione o país.')}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 text-gray-700 shadow-sm placeholder-gray-400"
             />
           </div>

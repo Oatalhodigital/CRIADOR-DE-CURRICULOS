@@ -4,6 +4,8 @@ import { saveDraft } from '../services/firebase';
 
 interface ResumeContextType {
   resume: Resume;
+  activeTemplate: 'classic' | 'modern' | 'minimalist';
+  setActiveTemplate: (template: 'classic' | 'modern' | 'minimalist') => void;
   updatePersonalInfo: (info: PersonalInfo) => void;
   addExperience: (experience: Experience) => void;
   updateExperience: (id: string, experience: Experience) => void;
@@ -41,6 +43,7 @@ const initialResume: Resume = {
 
 export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [resume, setResume] = useState<Resume>(initialResume);
+  const [activeTemplate, setActiveTemplate] = useState<'classic' | 'modern' | 'minimalist'>('modern');
   const [draftId, setDraftIdState] = useState<string | null>(null);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
 
@@ -160,6 +163,8 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     <ResumeContext.Provider
       value={{
         resume,
+        activeTemplate,
+        setActiveTemplate,
         updatePersonalInfo,
         addExperience,
         updateExperience,

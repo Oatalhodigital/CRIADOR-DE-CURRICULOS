@@ -7,14 +7,15 @@ import SkillsForm from './components/SkillsForm';
 import ResumePreview from './components/ResumePreview';
 import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
-import { FileText, Shield, ArrowRight, Check, ChevronRight } from 'lucide-react';
+import { FileText, Shield, ArrowRight, Check, ChevronRight, Layout, Sparkles, Minimize } from 'lucide-react';
 
 const ResumeBuilder = () => {
-  const { resume, updateSummary, setPaymentStatus } = useResume();
+  const { resume, updateSummary, setPaymentStatus, activeTemplate, setActiveTemplate } = useResume();
   const [currentStep, setCurrentStep] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [completedSteps, setCompletedSteps] = useState(new Set());
+  const [currentTip, setCurrentTip] = useState('');
 
   const steps = [
     { title: 'Dados Pessoais', component: PersonalInfoForm, icon: '👤' },
@@ -38,9 +39,7 @@ const ResumeBuilder = () => {
   };
 
   const handleStepClick = (index) => {
-    if (completedSteps.has(index) || index < currentStep) {
-      setCurrentStep(index);
-    }
+    setCurrentStep(index);
   };
 
   const handleGeneratePDF = () => {
@@ -68,8 +67,48 @@ const ResumeBuilder = () => {
       <div className="w-full lg:w-1/2 h-full flex flex-col bg-white border-r border-gray-100 shadow-sm">
         {/* Brand Header */}
         <div className="px-8 py-6 border-b border-gray-100 flex-shrink-0">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">LS - Soluções Digitais</p>
-          <h1 className="text-xl font-bold text-gray-900">Criador de Currículos Profissional</h1>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">LS - Soluções Digitais</p>
+              <h1 className="text-xl font-bold text-gray-900">Criador de Currículos Profissional</h1>
+            </div>
+            {/* Template Selector */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveTemplate('classic')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTemplate === 'classic'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Layout className="w-4 h-4" />
+                Clássico
+              </button>
+              <button
+                onClick={() => setActiveTemplate('modern')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTemplate === 'modern'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Sparkles className="w-4 h-4" />
+                Moderno
+              </button>
+              <button
+                onClick={() => setActiveTemplate('minimalist')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTemplate === 'minimalist'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Minimize className="w-4 h-4" />
+                Minimalista
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Stepper */}
@@ -131,14 +170,15 @@ const ResumeBuilder = () => {
             </p>
           </div>
 
-          <div className="mb-8">
+          <div className="mb-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {CurrentComponent ? (
-              <CurrentComponent />
+              <CurrentComponent onFocusTip={setCurrentTip} />
             ) : (
               <div className="space-y-6">
                 <textarea
                   value={resume.summary}
                   onChange={(e) => updateSummary(e.target.value)}
+                  onFocus={() => setCurrentTip('Escreva um parágrafo curto (3 a 4 linhas) destacando seus anos de experiência e sua maior especialidade.')}
                   placeholder="Descreva brevemente suas qualificações profissionais, objetivos de carreira e principais conquistas..."
                   rows={12}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 resize-none text-gray-700 shadow-sm placeholder-gray-400"
@@ -146,6 +186,19 @@ const ResumeBuilder = () => {
               </div>
             )}
           </div>
+
+          {/* Dynamic Tips Panel */}
+          {currentTip && (
+            <div className="mb-8 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-indigo-900 mb-1">Dica de Especialista</p>
+                  <p className="text-sm text-indigo-700 leading-relaxed">{currentTip}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Navigation Buttons */}
           <div className="flex justify-between items-center pb-8">
