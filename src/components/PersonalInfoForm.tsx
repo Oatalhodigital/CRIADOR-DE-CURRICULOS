@@ -22,7 +22,7 @@ const PersonalInfoForm: React.FC = () => {
             value={personalInfo.fullName}
             onChange={(e) => handleChange('fullName', e.target.value)}
             placeholder="Seu nome completo"
-            className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
+            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 text-gray-700 shadow-sm placeholder-gray-400"
           />
         </div>
       </div>

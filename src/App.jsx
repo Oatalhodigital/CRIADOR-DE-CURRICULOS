@@ -63,17 +63,17 @@ const ResumeBuilder = () => {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-gray-100">
+    <div className="h-screen overflow-hidden bg-gray-50 flex flex-col lg:flex-row">
       {/* Left Panel - Form (50%) */}
-      <div className="w-full lg:w-1/2 h-full overflow-y-auto p-8 bg-white shadow-xl">
+      <div className="w-full lg:w-1/2 h-full flex flex-col bg-white border-r border-gray-100 shadow-sm">
         {/* Brand Header */}
-        <div className="mb-8 pb-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-900">LS - Soluções Digitais</h1>
-          <p className="text-gray-600 mt-1">Criador de Currículos Profissionais</p>
+        <div className="px-8 py-6 border-b border-gray-100 flex-shrink-0">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">LS - Soluções Digitais</p>
+          <h1 className="text-xl font-bold text-gray-900">Criador de Currículos Profissional</h1>
         </div>
 
         {/* Stepper */}
-        <div className="mb-8">
+        <div className="px-8 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
               <React.Fragment key={index}>
@@ -88,7 +88,7 @@ const ResumeBuilder = () => {
                       completedSteps.has(index)
                         ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
                         : index === currentStep
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-4 ring-blue-500/20'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 ring-4 ring-indigo-500/20'
                         : 'bg-gray-200 text-gray-600'
                     }`}
                   >
@@ -100,7 +100,7 @@ const ResumeBuilder = () => {
                   </div>
                   <span
                     className={`text-xs font-medium transition-colors duration-300 ${
-                      index === currentStep ? 'text-blue-600' : 'text-gray-600'
+                      index === currentStep ? 'text-indigo-600' : 'text-gray-600'
                     }`}
                   >
                     {step.title}
@@ -118,56 +118,58 @@ const ResumeBuilder = () => {
           </div>
         </div>
 
-        {/* Form Content */}
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">{steps[currentStep].title}</h2>
-          <p className="text-gray-500 text-sm">
-            {currentStep === 0 && 'Preencha suas informações de contato básicas'}
-            {currentStep === 1 && 'Adicione sua experiência profissional relevante'}
-            {currentStep === 2 && 'Informe sua formação acadêmica'}
-            {currentStep === 3 && 'Liste suas habilidades técnicas e soft skills'}
-            {currentStep === 4 && 'Escreva um resumo impactante sobre você'}
-          </p>
-        </div>
+        {/* Form Content with Scroll */}
+        <div className="flex-1 overflow-y-auto px-8 py-6">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{steps[currentStep].title}</h2>
+            <p className="text-gray-500 text-sm">
+              {currentStep === 0 && 'Preencha suas informações de contato básicas'}
+              {currentStep === 1 && 'Adicione sua experiência profissional relevante'}
+              {currentStep === 2 && 'Informe sua formação acadêmica'}
+              {currentStep === 3 && 'Liste suas habilidades técnicas e soft skills'}
+              {currentStep === 4 && 'Escreva um resumo impactante sobre você'}
+            </p>
+          </div>
 
-        <div className="mb-8">
-          {CurrentComponent ? (
-            <CurrentComponent />
-          ) : (
-            <div className="space-y-6">
-              <textarea
-                value={resume.summary}
-                onChange={(e) => updateSummary(e.target.value)}
-                placeholder="Descreva brevemente suas qualificações profissionais, objetivos de carreira e principais conquistas..."
-                rows={12}
-                className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all resize-none text-gray-900 placeholder-gray-400"
-              />
-            </div>
-          )}
-        </div>
+          <div className="mb-8">
+            {CurrentComponent ? (
+              <CurrentComponent />
+            ) : (
+              <div className="space-y-6">
+                <textarea
+                  value={resume.summary}
+                  onChange={(e) => updateSummary(e.target.value)}
+                  placeholder="Descreva brevemente suas qualificações profissionais, objetivos de carreira e principais conquistas..."
+                  rows={12}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all duration-200 resize-none text-gray-700 shadow-sm placeholder-gray-400"
+                />
+              </div>
+            )}
+          </div>
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between items-center pb-8">
-          <button
-            onClick={handleBack}
-            disabled={currentStep === 0}
-            className="flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-300 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Voltar
-          </button>
-          <button
-            onClick={handleNext}
-            disabled={currentStep === steps.length - 1}
-            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 font-medium shadow-lg shadow-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {currentStep === steps.length - 1 ? 'Finalizar' : 'Avançar'}
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          {/* Navigation Buttons */}
+          <div className="flex justify-between items-center pb-8">
+            <button
+              onClick={handleBack}
+              disabled={currentStep === 0}
+              className="flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-300 font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
+            >
+              Voltar
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={currentStep === steps.length - 1}
+              className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all duration-300 font-medium shadow-lg shadow-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
+            >
+              {currentStep === steps.length - 1 ? 'Finalizar' : 'Avançar'}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Right Panel - Preview (50%) */}
-      <div className="w-full lg:w-1/2 h-full bg-gray-200 p-8 flex items-center justify-center overflow-y-auto">
+      <div className="w-full lg:w-1/2 h-full bg-slate-100 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-4xl">
           <ResumePreview onGeneratePDF={handleGeneratePDF} />
         </div>
