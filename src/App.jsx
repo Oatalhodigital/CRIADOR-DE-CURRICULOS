@@ -14,7 +14,7 @@ const ResumeBuilder = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [completedSteps, setCompletedSteps] = useState(new Set());
 
   const steps = [
     { title: 'Dados Pessoais', component: PersonalInfoForm, icon: '👤' },
@@ -37,7 +37,7 @@ const ResumeBuilder = () => {
     }
   };
 
-  const handleStepClick = (index: number) => {
+  const handleStepClick = (index) => {
     if (completedSteps.has(index) || index < currentStep) {
       setCurrentStep(index);
     }
