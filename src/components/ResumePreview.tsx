@@ -53,11 +53,9 @@ const ResumePreview: React.FC<{ onGeneratePDF: () => void }> = ({ onGeneratePDF 
       <div className="relative">
         <div
           ref={previewRef}
-          className="bg-white p-8 md:p-12 rounded-lg shadow-2xl min-h-[800px] relative overflow-hidden"
+          className="w-[210mm] min-h-[297mm] bg-white p-12 shadow-2xl rounded-sm text-gray-800 relative overflow-hidden mx-auto"
           style={{ 
             fontFamily: 'Georgia, serif',
-            aspectRatio: '210/297',
-            maxWidth: '100%',
           }}
         >
           {/* Paywall Overlay */}
