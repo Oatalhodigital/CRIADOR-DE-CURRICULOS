@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Briefcase, Plus, Trash2 } from 'lucide-react';
+import { Briefcase, Plus, Trash2, Building2 } from 'lucide-react';
 import { Experience } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
 
@@ -39,86 +39,104 @@ const ExperienceForm: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <Briefcase className="w-6 h-6" />
-        Experiência Profissional
-      </h2>
-
+    <div className="space-y-5">
       {experience.map((exp) => (
-        <div key={exp.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div key={exp.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex justify-between items-start mb-3">
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-800">{exp.position}</h3>
+              <h3 className="font-semibold text-gray-900">{exp.position}</h3>
               <p className="text-sm text-gray-600">{exp.company}</p>
             </div>
             <button
               onClick={() => removeExperience(exp.id)}
-              className="text-red-500 hover:text-red-700 transition"
+              className="text-gray-400 hover:text-red-500 transition p-1 hover:bg-red-50 rounded-lg"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-500">
             {exp.startDate} - {exp.current ? 'Atual' : exp.endDate}
           </p>
           <p className="text-sm text-gray-700 mt-2">{exp.description}</p>
         </div>
       ))}
 
-      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-        <h3 className="font-semibold text-purple-800 mb-3">Adicionar Experiência</h3>
-        <div className="space-y-3">
-          <input
-            type="text"
-            placeholder="Empresa *"
-            value={newExperience.company}
-            onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-          />
-          <input
-            type="text"
-            placeholder="Cargo *"
-            value={newExperience.position}
-            onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-          />
-          <div className="grid grid-cols-2 gap-3">
+      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-100">
+        <h3 className="font-semibold text-indigo-900 mb-4 flex items-center gap-2">
+          <Building2 className="w-5 h-5" />
+          Adicionar Experiência
+        </h3>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">Empresa</label>
             <input
-              type="month"
-              value={newExperience.startDate}
-              onChange={(e) => setNewExperience({ ...newExperience, startDate: e.target.value })}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            />
-            <input
-              type="month"
-              value={newExperience.endDate}
-              onChange={(e) => setNewExperience({ ...newExperience, endDate: e.target.value })}
-              disabled={newExperience.current}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition disabled:bg-gray-100"
+              type="text"
+              placeholder="Nome da empresa"
+              value={newExperience.company}
+              onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
+              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all duration-300 text-gray-900 placeholder-gray-400"
             />
           </div>
-          <label className="flex items-center gap-2">
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">Cargo</label>
+            <input
+              type="text"
+              placeholder="Seu cargo na empresa"
+              value={newExperience.position}
+              onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })}
+              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all duration-300 text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Data Início</label>
+              <input
+                type="month"
+                value={newExperience.startDate}
+                onChange={(e) => setNewExperience({ ...newExperience, startDate: e.target.value })}
+                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all duration-300 text-gray-900"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Data Fim</label>
+              <input
+                type="month"
+                value={newExperience.endDate}
+                onChange={(e) => setNewExperience({ ...newExperience, endDate: e.target.value })}
+                disabled={newExperience.current}
+                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all duration-300 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+          
+          <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
               checked={newExperience.current}
               onChange={(e) => setNewExperience({ ...newExperience, current: e.target.checked })}
-              className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+              className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 focus:ring-offset-0"
             />
-            <span className="text-sm text-gray-700">Emprego atual</span>
+            <span className="text-sm font-medium text-gray-700">Emprego atual</span>
           </label>
-          <textarea
-            placeholder="Descrição das responsabilidades e conquistas"
-            value={newExperience.description}
-            onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
-          />
+          
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">Descrição</label>
+            <textarea
+              placeholder="Descreva suas responsabilidades e conquistas..."
+              value={newExperience.description}
+              onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })}
+              rows={4}
+              className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all duration-300 resize-none text-gray-900 placeholder-gray-400"
+            />
+          </div>
+          
           <button
             onClick={handleAdd}
-            className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 px-4 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 font-medium shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5" />
             Adicionar Experiência
           </button>
         </div>

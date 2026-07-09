@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Mail, Phone, MapPin, Link, Globe } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Globe } from 'lucide-react';
 import { PersonalInfo } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
 
@@ -12,94 +12,92 @@ const PersonalInfoForm: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <User className="w-6 h-6" />
-        Dados Pessoais
-      </h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nome Completo *
-          </label>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-gray-700">Nome Completo</label>
+        <div className="relative">
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             value={personalInfo.fullName}
             onChange={(e) => handleChange('fullName', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            placeholder="João Silva"
+            placeholder="Seu nome completo"
+            className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
           />
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            Email *
-          </label>
-          <input
-            type="email"
-            value={personalInfo.email}
-            onChange={(e) => handleChange('email', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            placeholder="joao@email.com"
-          />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-700">Email</label>
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="email"
+              value={personalInfo.email}
+              onChange={(e) => handleChange('email', e.target.value)}
+              placeholder="seu@email.com"
+              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <Phone className="w-4 h-4" />
-            Telefone *
-          </label>
-          <input
-            type="tel"
-            value={personalInfo.phone}
-            onChange={(e) => handleChange('phone', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            placeholder="(11) 99999-9999"
-          />
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-700">Telefone</label>
+          <div className="relative">
+            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="tel"
+              value={personalInfo.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              placeholder="(00) 00000-0000"
+              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
+            />
+          </div>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
-            Endereço *
-          </label>
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-gray-700">Endereço</label>
+        <div className="relative">
+          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             value={personalInfo.address}
             onChange={(e) => handleChange('address', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            placeholder="São Paulo, SP"
+            placeholder="Cidade, Estado"
+            className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
           />
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <Link className="w-4 h-4" />
-            LinkedIn
-          </label>
-          <input
-            type="url"
-            value={personalInfo.linkedin}
-            onChange={(e) => handleChange('linkedin', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            placeholder="linkedin.com/in/joaosilva"
-          />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-700">LinkedIn</label>
+          <div className="relative">
+            <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="url"
+              value={personalInfo.linkedin}
+              onChange={(e) => handleChange('linkedin', e.target.value)}
+              placeholder="linkedin.com/in/seu-perfil"
+              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-            <Globe className="w-4 h-4" />
-            Website/Portfólio
-          </label>
-          <input
-            type="url"
-            value={personalInfo.website}
-            onChange={(e) => handleChange('website', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-            placeholder="www.joaosilva.com"
-          />
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-700">Website/Portfólio</label>
+          <div className="relative">
+            <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="url"
+              value={personalInfo.website}
+              onChange={(e) => handleChange('website', e.target.value)}
+              placeholder="seusite.com"
+              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent focus:bg-white transition-all duration-300 text-gray-900 placeholder-gray-400"
+            />
+          </div>
         </div>
       </div>
     </div>
