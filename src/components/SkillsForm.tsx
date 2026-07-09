@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Star, Plus, Trash2, Zap } from 'lucide-react';
 import { Skill } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
@@ -12,10 +12,14 @@ const SkillsForm: React.FC = () => {
     level: 'Intermediate',
   });
 
+  const generateId = useCallback(() => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
   const handleAdd = () => {
     if (newSkill.name) {
       addSkill({
-        id: Date.now().toString(),
+        id: generateId(),
         name: newSkill.name,
         level: newSkill.level || 'Intermediate',
       });

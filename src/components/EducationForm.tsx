@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { GraduationCap, Plus, Trash2, School } from 'lucide-react';
 import { Education } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
@@ -16,10 +16,14 @@ const EducationForm: React.FC = () => {
     current: false,
   });
 
+  const generateId = useCallback(() => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
   const handleAdd = () => {
     if (newEducation.institution && newEducation.degree) {
       addEducation({
-        id: Date.now().toString(),
+        id: generateId(),
         institution: newEducation.institution,
         degree: newEducation.degree,
         field: newEducation.field || '',

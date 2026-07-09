@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Briefcase, Plus, Trash2, Building2 } from 'lucide-react';
 import { Experience } from '../types/resume';
 import { useResume } from '../context/ResumeContext';
@@ -16,10 +16,14 @@ const ExperienceForm: React.FC = () => {
     description: '',
   });
 
+  const generateId = useCallback(() => {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
+
   const handleAdd = () => {
     if (newExperience.company && newExperience.position) {
       addExperience({
-        id: Date.now().toString(),
+        id: generateId(),
         company: newExperience.company,
         position: newExperience.position,
         startDate: newExperience.startDate || '',
