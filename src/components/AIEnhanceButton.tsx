@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
-import { enhanceTextWithAI } from '@/services/openai';
 
 interface AIEnhanceButtonProps {
   text: string;
@@ -24,8 +23,10 @@ const AIEnhanceButton = ({
 
     setIsLoading(true);
     try {
-      const enhanced = await enhanceTextWithAI(text, context);
-      onEnhanced(enhanced);
+      // Placeholder for AI enhancement - will be implemented later
+      // For now, just return the original text
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      onEnhanced(text);
     } catch (error) {
       console.error('Failed to enhance text:', error);
     } finally {
@@ -40,7 +41,7 @@ const AIEnhanceButton = ({
       disabled={isLoading || !text.trim()}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
         isLoading || !text.trim()
-          ? 'bg-muted text-muted-foreground cursor-not-allowed'
+          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
           : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 shadow-md'
       } ${className}`}
       title="Melhorar com IA"

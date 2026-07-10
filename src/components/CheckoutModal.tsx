@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { X, QrCode, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { createPixPayment, checkPaymentStatus, isMockMode } from '../services/mercadopago';
 import { useResume } from '../context/ResumeContext';
+
+// Placeholder functions for payment - will be implemented later
+const isMockMode = true;
+
+const createPixPayment = async (amount: number, email: string) => {
+  // Placeholder for Mercado Pago integration
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return {
+    id: 'mock-payment-' + Date.now(),
+    qr_code: '00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-426614174000520400005303986540510.005802BR5913LS Solucoes6008Sao Paulo62070503***63041A2B',
+    qr_code_base64: '', // Would contain actual QR code image
+  };
+};
+
+const checkPaymentStatus = async (paymentId: string) => {
+  // Placeholder for payment status check
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return true; // Auto-approve in mock mode
+};
 
 interface CheckoutModalProps {
   isOpen: boolean;

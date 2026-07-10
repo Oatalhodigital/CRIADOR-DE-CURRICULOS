@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { FileText, Sparkles } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
-import { generateSummary } from '@/services/openai';
 
 const SummaryForm = () => {
   const { resume, updateSummary } = useResume();
@@ -17,9 +16,9 @@ const SummaryForm = () => {
 
     setIsGenerating(true);
     try {
-      const experiences = resume.experience.map(exp => exp.description);
-      const skills = resume.skills.map(skill => skill.name);
-      const generatedSummary = await generateSummary(experiences, skills);
+      // Placeholder for AI summary generation - will be implemented later
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const generatedSummary = `Profissional com experiência em ${resume.skills.slice(0, 3).map(s => s.name).join(', ')}. Histórico de trabalho em ${resume.experience.length} empresas diferentes, focado em resultados e crescimento.`;
       if (generatedSummary) {
         updateSummary(generatedSummary);
       }
@@ -32,17 +31,17 @@ const SummaryForm = () => {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-2xl font-bold text-white mb-6">Resumo Profissional</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">Resumo Profissional</h2>
       
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <label className="block text-sm font-semibold text-foreground">Resumo Profissional</label>
+          <label className="block text-sm font-semibold text-gray-900">Resumo Profissional</label>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleGenerateSummary}
               disabled={isGenerating || resume.experience.length === 0 || resume.skills.length === 0}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-primary text-primary-foreground hover:bg-primary/90 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all bg-emerald-600 text-white hover:bg-emerald-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               title="Gerar resumo com IA"
             >
               <Sparkles className="w-4 h-4" />
@@ -60,16 +59,16 @@ const SummaryForm = () => {
           onChange={(e) => updateSummary(e.target.value)}
           placeholder="Descreva suas principais qualificações, experiência profissional e objetivos de carreira..."
           rows={6}
-          className="w-full px-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-200 text-foreground placeholder-muted-foreground resize-none"
+          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 resize-none"
         />
       </div>
 
-      <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <FileText className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-foreground">
+          <FileText className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-gray-900">
             <p className="font-semibold mb-1">Dicas para um bom resumo:</p>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+            <ul className="list-disc list-inside space-y-1 text-gray-600">
               <li>Seja conciso (máximo 150 palavras)</li>
               <li>Destaque suas principais competências</li>
               <li>Mencione anos de experiência se relevante</li>
