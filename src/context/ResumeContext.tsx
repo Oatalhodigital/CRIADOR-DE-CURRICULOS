@@ -1,6 +1,7 @@
+'use client'
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { Resume, PersonalInfo, Experience, Education, Skill } from '../types/resume';
-import { saveDraft } from '../services/firebase';
+import { Resume, PersonalInfo, Experience, Education, Skill } from '@/types/resume';
 
 interface ResumeContextType {
   resume: Resume;
@@ -32,7 +33,7 @@ const initialPersonalInfo: PersonalInfo = {
   website: '',
 };
 
-const initialResume: Resume = {
+export const initialResume: Resume = {
   personalInfo: initialPersonalInfo,
   experience: [],
   education: [],
@@ -47,24 +48,37 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [draftId, setDraftIdState] = useState<string | null>(null);
   const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  // Auto-save to Firestore on any change
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedResume = localStorage.getItem('resumeDraft');
+    if (savedResume) {
+      try {
+        const parsed = JSON.parse(savedResume);
+        setResume(parsed);
+        if (parsed.id) {
+          setDraftIdState(parsed.id);
+        }
+      } catch (error) {
+        console.error('Failed to load saved resume:', error);
+      }
+    }
+  }, []);
+
+  // Auto-save to localStorage on any change
   useEffect(() => {
     if (saveTimeout) {
       clearTimeout(saveTimeout);
     }
 
-    const timeout = setTimeout(async () => {
+    const timeout = setTimeout(() => {
       try {
         if (resume.personalInfo.email || resume.personalInfo.fullName) {
-          const savedDraftId = await saveDraft(resume);
-          if (savedDraftId && !draftId) {
-            setDraftIdState(savedDraftId);
-          }
+          localStorage.setItem('resumeDraft', JSON.stringify(resume));
         }
       } catch (error) {
         console.error('Auto-save failed:', error);
       }
-    }, 2000); // Debounce save for 2 seconds
+    }, 1000); // Debounce save for 1 second
 
     setSaveTimeout(timeout);
 
@@ -73,7 +87,7 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         clearTimeout(timeout);
       }
     };
-  }, [resume, draftId]);
+  }, [resume]);
 
   const updatePersonalInfo = (info: PersonalInfo) => {
     setResume(prev => ({ ...prev, personalInfo: info }));

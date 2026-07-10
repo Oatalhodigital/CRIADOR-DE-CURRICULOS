@@ -1,33 +1,39 @@
 # Gerador de Currículos Profissionais
 
-Um aplicativo web moderno para criação de currículos profissionais com design limpo, preenchimento rápido e monetização integrada.
+Um aplicativo web moderno para criação de currículos profissionais otimizados para ATS, com IA integrada, design limpo e monetização via PIX.
 
 ## 🚀 Funcionalidades
 
 - **Interface Split Layout**: Formulário à esquerda, preview em tempo real à direita
 - **Preenchimento Passo a Passo**: Dados pessoais, experiência, formação, habilidades e resumo
 - **Preview em Tempo Real**: Visualização do currículo enquanto preenche
-- **Marca d'Água**: Preview com marca d'água antes do pagamento
-- **Sistema de Pagamento**: Checkout simulado (preparado para integração com Mercado Pago/Asaas)
-- **Geração de PDF**: Download do currículo em PDF após pagamento
-- **Dashboard Admin**: Métricas de faturamento, conversão e usuários
-- **Design Moderno**: Interface clean com Tailwind CSS
+- **Layout ATS-Friendly**: Design otimizado para robôs de RH (simples, sem colunas complexas)
+- **IA Integrada**: Botões "Melhorar com IA" em campos de texto para otimizar conteúdo
+- **Geração Automática de Resumo**: IA gera resumo profissional baseado em experiências e habilidades
+- **Sistema de Pagamento PIX**: Integração com Mercado Pago para pagamento único de R$ 10,00
+- **Geração de PDF Profissional**: Download do currículo em PDF A4 após pagamento
+- **Design Moderno**: Interface clean com Tailwind CSS e animações suaves
 - **Responsivo**: Funciona em desktop e mobile
+- **Auto-save**: Salva automaticamente no Firebase enquanto preenche
 
 ## 🛠️ Stack Tecnológica
 
 - **Frontend**: React.js + Vite
 - **Estilização**: Tailwind CSS
+- **Validação**: React Hook Form + Zod
+- **Geração de PDF**: @react-pdf/renderer (ATS-friendly)
+- **IA**: OpenAI GPT-4o-mini
+- **Pagamento**: Mercado Pago SDK
 - **Banco de Dados**: Firebase Firestore
 - **Autenticação**: Firebase Auth
-- **Geração de PDF**: html2pdf.js
 - **Ícones**: Lucide React
-- **Pagamento**: Mock (preparado para Mercado Pago/Asaas)
 
 ## 📋 Pré-requisitos
 
 - Node.js 18+ instalado
 - Conta no Firebase (para configuração de produção)
+- Chave API da OpenAI (para recursos de IA)
+- Token de acesso do Mercado Pago (para pagamentos)
 
 ## 🔧 Instalação
 
@@ -47,14 +53,24 @@ npm install
 cp .env.example .env
 ```
 
-Edite o arquivo `.env` com suas credenciais do Firebase:
+Edite o arquivo `.env` com suas credenciais:
 ```
+# Firebase Configuration
 VITE_FIREBASE_API_KEY=sua_api_key
 VITE_FIREBASE_AUTH_DOMAIN=seu_project_id.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=seu_project_id
 VITE_FIREBASE_STORAGE_BUCKET=seu_project_id.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
 VITE_FIREBASE_APP_ID=seu_app_id
+
+# OpenAI Configuration (para IA)
+VITE_OPENAI_API_KEY=sk-your_openai_api_key
+
+# Mercado Pago Configuration (para PIX)
+VITE_MERCADO_PAGO_ACCESS_TOKEN=your_mercado_pago_access_token
+
+# Admin Email
+VITE_ADMIN_EMAIL=seu@email.com
 ```
 
 ## 🏃 Rodando o Projeto
@@ -83,26 +99,45 @@ src/
 │   ├── ExperienceForm.tsx
 │   ├── EducationForm.tsx
 │   ├── SkillsForm.tsx
-│   └── ResumePreview.tsx
+│   ├── SummaryForm.tsx
+│   ├── ResumePreview.tsx
+│   ├── ResumePDF.tsx
+│   ├── AIEnhanceButton.tsx
+│   └── CheckoutModal.tsx
 ├── pages/           # Páginas principais
 │   ├── Checkout.tsx
 │   └── Admin.tsx
 ├── context/         # Context API para estado global
 │   └── ResumeContext.tsx
 ├── services/        # Serviços externos
-│   └── firebase.ts
+│   ├── firebase.ts
+│   ├── openai.ts
+│   └── mercadopago.ts
 ├── types/           # Definições TypeScript
 │   └── resume.ts
+├── lib/             # Utilitários e validação
+│   ├── validation.ts
+│   └── utils.ts
 └── utils/           # Utilitários
+    └── pdfGenerator.tsx
 ```
 
 ## 💰 Fluxo de Monetização
 
-1. Usuário preenche o currículo e vê o preview com marca d'água
-2. Clica em "Gerar PDF" e é redirecionado para o checkout
-3. Realiza o pagamento de R$ 8,98 (PIX ou Cartão)
-4. Após pagamento confirmado, o download do PDF sem marca d'água é liberado
-5. Uma cópia é enviada para o e-mail do usuário
+1. Usuário preenche o currículo e vê o preview em tempo real
+2. Pode usar IA para melhorar descrições e gerar resumo automaticamente
+3. Clica em "Baixar PDF" e é redirecionado para o checkout PIX
+4. Realiza o pagamento de R$ 10,00 via Mercado Pago
+5. Sistema verifica pagamento automaticamente a cada 5 segundos
+6. Após confirmação, download do PDF ATS-friendly é liberado
+7. Dados são salvos no Firebase com status de pagamento
+
+## 🤖 Recursos de IA
+
+- **Melhoria de Texto**: Botão "IA" em campos de experiência para otimizar descrições
+- **Geração de Resumo**: IA cria resumo profissional baseado em experiências e habilidades
+- **Otimização ATS**: Textos são melhorados para passar em robôs de RH
+- **Verbos de Ação**: IA sugere verbos fortes e resultados mensuráveis
 
 ## 🔐 Dashboard Admin
 
@@ -120,19 +155,18 @@ npm install -g vercel
 vercel
 ```
 
-### GitHub Pages
-1. Configure o `vite.config.js` com `base: '/seu-repositorio/'`
-2. Build o projeto: `npm run build`
-3. Faça deploy da pasta `dist`
+### Netlify
+```bash
+npm run build
+netlify deploy --prod --dir=dist
+```
 
-## 📝 Próximos Passos
+## 📝 Notas Importantes
 
-- [ ] Integração real com Mercado Pago/Asaas
-- [ ] Sistema de autenticação completo
-- [ ] Múltiplos templates de currículo
-- [ ] Exportação em outros formatos (DOCX)
-- [ ] Sistema de assinatura recorrente
-- [ ] Versão mobile app (React Native/Capacitor)
+- **Segurança**: Chaves de API devem ser configuradas como variáveis de ambiente
+- **Produção**: Mercado Pago SDK deve ser usado server-side para maior segurança
+- **Custos**: OpenAI cobra por token usado; considere limites de uso
+- **ATS**: O layout foi desenhado para ser compatível com principais sistemas ATS
 
 ## 📄 Licença
 
@@ -140,4 +174,4 @@ Este projeto está sob licença MIT.
 
 ## 👨‍💻 Desenvolvido por
 
-Seu Nome - 2026
+Leandro Sena | LS - Soluções Digitais - 2026
