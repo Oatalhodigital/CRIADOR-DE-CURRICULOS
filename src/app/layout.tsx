@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { ResumeProvider } from '@/context/ResumeContext'
 
@@ -21,6 +22,7 @@ export default function RootLayout({
         <ResumeProvider>
           {children}
         </ResumeProvider>
+        <Analytics />
       </body>
     </html>
   )

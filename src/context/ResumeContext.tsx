@@ -1,11 +1,16 @@
 'use client'
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Resume, PersonalInfo, Experience, Education, Skill } from '@/types/resume';
+import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
 
 interface ResumeContextType {
   resume: Resume;
   activeTemplate: 'classic' | 'modern' | 'minimalist';
+  firebaseUser: User | null;
+  firebaseReady: boolean;
   setActiveTemplate: (template: 'classic' | 'modern' | 'minimalist') => void;
   updatePersonalInfo: (info: PersonalInfo) => void;
   addExperience: (experience: Experience) => void;
@@ -46,7 +51,36 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [resume, setResume] = useState<Resume>(initialResume);
   const [activeTemplate, setActiveTemplate] = useState<'classic' | 'modern' | 'minimalist'>('modern');
   const [draftId, setDraftIdState] = useState<string | null>(null);
-  const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [firebaseReady, setFirebaseReady] = useState(!isFirebaseConfigured());
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Firebase Auth — anonymous sign-in
+  useEffect(() => {
+    if (!isFirebaseConfigured() || !auth) {
+      setFirebaseReady(true);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setFirebaseUser(user);
+        setFirebaseReady(true);
+      } else {
+        try {
+          if (!auth) return;
+          const credential = await signInAnonymously(auth);
+          setFirebaseUser(credential.user);
+        } catch (error) {
+          console.error('Firebase auth failed:', error);
+        } finally {
+          setFirebaseReady(true);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -64,30 +98,46 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, []);
 
-  // Auto-save to localStorage on any change
+  // Auto-save to localStorage + Firestore
   useEffect(() => {
-    if (saveTimeout) {
-      clearTimeout(saveTimeout);
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
 
-    const timeout = setTimeout(() => {
+    saveTimeoutRef.current = setTimeout(async () => {
       try {
         if (resume.personalInfo.email || resume.personalInfo.fullName) {
           localStorage.setItem('resumeDraft', JSON.stringify(resume));
+
+          if (isFirebaseConfigured() && firebaseUser && firebaseReady) {
+            const id = resume.id || draftId || firebaseUser.uid;
+            await setDoc(
+              doc(db, 'resumes', id),
+              {
+                ...resume,
+                id,
+                userId: firebaseUser.uid,
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+            if (!resume.id && !draftId) {
+              setDraftIdState(id);
+              setResume((prev) => ({ ...prev, id }));
+            }
+          }
         }
       } catch (error) {
         console.error('Auto-save failed:', error);
       }
-    }, 1000); // Debounce save for 1 second
-
-    setSaveTimeout(timeout);
+    }, 1500);
 
     return () => {
-      if (timeout) {
-        clearTimeout(timeout);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [resume]);
+  }, [resume, firebaseUser, firebaseReady, draftId]);
 
   const updatePersonalInfo = (info: PersonalInfo) => {
     setResume(prev => ({ ...prev, personalInfo: info }));
@@ -178,6 +228,8 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       value={{
         resume,
         activeTemplate,
+        firebaseUser,
+        firebaseReady,
         setActiveTemplate,
         updatePersonalInfo,
         addExperience,

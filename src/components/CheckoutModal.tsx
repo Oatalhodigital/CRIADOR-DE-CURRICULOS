@@ -1,24 +1,39 @@
+'use client'
+
 import React, { useState, useEffect } from 'react';
-import { X, QrCode, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
 
-// Placeholder functions for payment - will be implemented later
-const isMockMode = true;
+interface PaymentData {
+  id: string;
+  qr_code: string;
+  qr_code_base64: string;
+}
 
-const createPixPayment = async (amount: number, email: string) => {
-  // Placeholder for Mercado Pago integration
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return {
-    id: 'mock-payment-' + Date.now(),
-    qr_code: '00020126580014BR.GOV.BCB.PIX0136123e4567-e89b-12d3-a456-426614174000520400005303986540510.005802BR5913LS Solucoes6008Sao Paulo62070503***63041A2B',
-    qr_code_base64: '', // Would contain actual QR code image
-  };
+const createPixPayment = async (amount: number, email: string): Promise<PaymentData> => {
+  const res = await fetch('/api/payment/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount, email }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Erro ao criar pagamento.');
+  }
+
+  return res.json();
 };
 
-const checkPaymentStatus = async (paymentId: string) => {
-  // Placeholder for payment status check
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return true; // Auto-approve in mock mode
+const checkPaymentStatus = async (paymentId: string): Promise<boolean> => {
+  const res = await fetch(`/api/payment/status/${paymentId}`);
+
+  if (!res.ok) {
+    return false;
+  }
+
+  const data = await res.json();
+  return data.approved === true;
 };
 
 interface CheckoutModalProps {
@@ -33,7 +48,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onPaymentSuccess,
 }) => {
   const { resume } = useResume();
-  const [paymentData, setPaymentData] = useState<any>(null);
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,46 +62,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    let timeout: NodeJS.Timeout;
-    
+
     if (paymentStatus === 'pending' && paymentData) {
-      if (isMockMode) {
-        // In mock mode, auto-approve after 3 seconds
-        timeout = setTimeout(async () => {
-          const isApproved = await checkPaymentStatus(paymentData.id);
-          if (isApproved) {
-            setPaymentStatus('approved');
-            onPaymentSuccess();
-          }
-        }, 3000);
-      } else {
-        // In production mode, check every 5 seconds
-        interval = setInterval(async () => {
-          const isApproved = await checkPaymentStatus(paymentData.id);
-          if (isApproved) {
-            setPaymentStatus('approved');
-            onPaymentSuccess();
-            clearInterval(interval);
-          }
-        }, 5000);
-      }
+      interval = setInterval(async () => {
+        const isApproved = await checkPaymentStatus(paymentData.id);
+        if (isApproved) {
+          setPaymentStatus('approved');
+          onPaymentSuccess();
+          clearInterval(interval);
+        }
+      }, 5000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
-      if (timeout) clearTimeout(timeout);
     };
-  }, [paymentStatus, paymentData]);
+  }, [paymentStatus, paymentData, onPaymentSuccess]);
 
   const createPayment = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const data = await createPixPayment(10, resume.personalInfo.email);
       setPaymentData(data);
     } catch (err) {
-      setError('Erro ao criar pagamento. Tente novamente.');
+      setError(err instanceof Error ? err.message : 'Erro ao criar pagamento. Tente novamente.');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -94,6 +95,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   const handleCheckStatus = async () => {
+    if (!paymentData) return;
+
     setIsChecking(true);
     try {
       const isApproved = await checkPaymentStatus(paymentData.id);
@@ -103,7 +106,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       } else {
         setError('Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.');
       }
-    } catch (err) {
+    } catch {
       setError('Erro ao verificar status do pagamento.');
     } finally {
       setIsChecking(false);
@@ -149,13 +152,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {paymentData && paymentStatus === 'pending' && (
           <div className="space-y-4">
-            <div className="bg-white border-2 border-gray-200 rounded-xl p-4 flex items-center justify-center">
-              <img
-                src={`data:image/png;base64,${paymentData.qr_code_base64}`}
-                alt="QR Code PIX"
-                className="w-48 h-48"
-              />
-            </div>
+            {paymentData.qr_code_base64 ? (
+              <div className="bg-white border-2 border-gray-200 rounded-xl p-4 flex items-center justify-center">
+                <img
+                  src={`data:image/png;base64,${paymentData.qr_code_base64}`}
+                  alt="QR Code PIX"
+                  className="w-48 h-48"
+                />
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-sm text-gray-600">
+                QR Code indisponível. Use o código PIX abaixo.
+              </div>
+            )}
 
             <div className="bg-gray-50 rounded-xl p-4">
               <p className="text-xs text-gray-500 mb-2">Código PIX (copie e cole):</p>

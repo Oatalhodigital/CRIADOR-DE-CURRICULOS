@@ -16,11 +16,23 @@ const SummaryForm = () => {
 
     setIsGenerating(true);
     try {
-      // Placeholder for AI summary generation - will be implemented later
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const generatedSummary = `Profissional com experiência em ${resume.skills.slice(0, 3).map(s => s.name).join(', ')}. Histórico de trabalho em ${resume.experience.length} empresas diferentes, focado em resultados e crescimento.`;
-      if (generatedSummary) {
-        updateSummary(generatedSummary);
+      const res = await fetch('/api/ai/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          experience: resume.experience,
+          skills: resume.skills,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Falha ao gerar resumo.');
+      }
+
+      const data = await res.json();
+      if (data.summary) {
+        updateSummary(data.summary);
       }
     } catch (error) {
       console.error('Failed to generate summary:', error);
