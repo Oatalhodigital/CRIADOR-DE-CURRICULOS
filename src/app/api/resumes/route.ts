@@ -9,10 +9,10 @@ import {
   limit,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
-  if (!isFirebaseConfigured()) {
+  if (!db) {
     return NextResponse.json(
       { error: 'Firebase não configurado.' },
       { status: 503 }
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });
   }
 
-  if (!isFirebaseConfigured()) {
+  if (!db) {
     return NextResponse.json(
       { error: 'Firebase não configurado.' },
       { status: 503 }

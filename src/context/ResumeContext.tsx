@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useRe
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Resume, PersonalInfo, Experience, Education, Skill } from '@/types/resume';
-import { auth, db, isFirebaseConfigured } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 
 interface ResumeContextType {
   resume: Resume;
@@ -52,12 +52,12 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [activeTemplate, setActiveTemplate] = useState<'classic' | 'modern' | 'minimalist'>('modern');
   const [draftId, setDraftIdState] = useState<string | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  const [firebaseReady, setFirebaseReady] = useState(!isFirebaseConfigured());
+  const [firebaseReady, setFirebaseReady] = useState(!auth);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Firebase Auth — anonymous sign-in
   useEffect(() => {
-    if (!isFirebaseConfigured() || !auth) {
+    if (!auth || !db) {
       setFirebaseReady(true);
       return;
     }
@@ -109,7 +109,7 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         if (resume.personalInfo.email || resume.personalInfo.fullName) {
           localStorage.setItem('resumeDraft', JSON.stringify(resume));
 
-          if (isFirebaseConfigured() && firebaseUser && firebaseReady) {
+          if (auth && db && firebaseUser && firebaseReady) {
             const id = resume.id || draftId || firebaseUser.uid;
             await setDoc(
               doc(db, 'resumes', id),

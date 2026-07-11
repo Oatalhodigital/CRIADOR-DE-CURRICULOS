@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,17 +12,21 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const db: Firestore = getFirestore(app);
+// Validação defensiva para evitar o crash da aplicação (Client-side Exception)
+const isFirebaseValid = firebaseConfig.apiKey && firebaseConfig.projectId;
 
-const auth: Auth | undefined =
-  typeof window !== 'undefined' ? getAuth(app) : undefined;
+if (!isFirebaseValid && typeof window !== 'undefined') {
+  console.error('❌ ERRO CRÍTICO: Chaves do Firebase ausentes no ambiente de produção!');
+}
+
+// Só inicializa se houver chaves válidas, evitando travar a renderização global do App Router
+const app =
+  getApps().length === 0 && isFirebaseValid
+    ? initializeApp(firebaseConfig)
+    : getApps().length > 0
+      ? getApp()
+      : null;
+const db = app ? getFirestore(app) : null;
+const auth = app ? getAuth(app) : null;
 
 export { app, db, auth };
-
-export function isFirebaseConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-  );
-}
