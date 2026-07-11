@@ -36,16 +36,21 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans overflow-x-hidden">
       {/* Header */}
-      <header className="flex justify-between items-center px-6 md:px-12 py-6 border-b border-gray-200 bg-white sticky top-0 z-50">
-        <div className="text-xl md:text-2xl font-bold tracking-tight">
-          LEANDRO SENA<span className="text-emerald-600 font-normal text-sm md:text-base ml-2">LS - Soluções Digitais</span>
+      <header className="grid grid-cols-3 items-center px-6 md:px-12 py-6 border-b border-gray-200 bg-white sticky top-0 z-50">
+        <div className="text-emerald-600 font-semibold text-sm md:text-base">
+          LS - Soluções Digitais
         </div>
-        <button
-          onClick={scrollToEditor}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200 text-sm md:text-base"
-        >
-          Criar Currículo
-        </button>
+        <h1 className="text-center text-sm md:text-lg font-bold tracking-tight text-gray-900 uppercase">
+          CRIADOR-DE-CURRICULOS- HELP IA
+        </h1>
+        <div className="flex justify-end">
+          <button
+            onClick={scrollToEditor}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200 text-sm md:text-base"
+          >
+            Criar Currículo
+          </button>
+        </div>
       </header>
 
       {/* Hero Section */}

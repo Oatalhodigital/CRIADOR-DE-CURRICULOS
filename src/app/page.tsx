@@ -88,14 +88,14 @@ export default function Home() {
     <div className="min-h-screen bg-white text-gray-900">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <p className="text-xs font-semibold tracking-wider mb-1 text-emerald-600">
-              LEANDRO SENA | LS - Soluções Digitais
-            </p>
-            <h1 className="text-xl font-bold text-gray-900">Criador de Currículos</h1>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-3 items-center">
+          <p className="text-xs font-semibold tracking-wider text-emerald-600">
+            LS - Soluções Digitais
+          </p>
+          <h1 className="text-center text-sm md:text-base font-bold text-gray-900 uppercase tracking-tight">
+            CRIADOR-DE-CURRICULOS- HELP IA
+          </h1>
+          <div className="flex justify-end items-center gap-2 text-sm text-gray-600">
             <span>Etapa {currentStepIndex + 1} de {steps.length}</span>
           </div>
         </div>
