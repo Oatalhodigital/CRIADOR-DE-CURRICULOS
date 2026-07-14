@@ -1,18 +1,27 @@
 'use client'
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Star, Plus, Trash2, Zap } from 'lucide-react';
 import { Skill } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
 
 const SkillsForm = () => {
-  const { resume, addSkill, removeSkill } = useResume();
+  const { resume, addSkill, removeSkill, setDraftSkill } = useResume();
   const { skills } = resume;
 
   const [newSkill, setNewSkill] = useState<Partial<Skill>>({
     name: '',
     level: 'Intermediate',
   });
+
+  // Update draft state in context for real-time preview
+  useEffect(() => {
+    if (newSkill.name) {
+      setDraftSkill(newSkill);
+    } else {
+      setDraftSkill(null);
+    }
+  }, [newSkill, setDraftSkill]);
 
   const generateId = useCallback(() => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -26,6 +35,7 @@ const SkillsForm = () => {
         level: newSkill.level || 'Intermediate',
       });
       setNewSkill({ name: '', level: 'Intermediate' });
+      setDraftSkill(null);
     }
   };
 

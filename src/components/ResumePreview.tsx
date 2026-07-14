@@ -1,11 +1,19 @@
-import { Resume } from '@/types/resume';
+import { Resume, Experience, Education, Skill } from '@/types/resume';
 
 interface ResumePreviewProps {
   resume: Resume;
+  draftExperience?: Partial<Experience> | null;
+  draftEducation?: Partial<Education> | null;
+  draftSkill?: Partial<Skill> | null;
 }
 
-const ResumePreview = ({ resume }: ResumePreviewProps) => {
-  const { personalInfo, experience, education, skills, summary } = resume;
+const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill }: ResumePreviewProps) => {
+  const { personalInfo, experience, education, skills, languages, summary } = resume;
+
+  // Combine existing items with draft items for real-time preview
+  const allExperience = draftExperience ? [...experience, draftExperience as Experience] : experience;
+  const allEducation = draftEducation ? [...education, draftEducation as Education] : education;
+  const allSkills = draftSkill ? [...skills, draftSkill as Skill] : skills;
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -58,13 +66,13 @@ const ResumePreview = ({ resume }: ResumePreviewProps) => {
       )}
 
       {/* Experience */}
-      {experience.length > 0 && (
+      {allExperience.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
             Experiência Profissional
           </h2>
-          {experience.map((exp) => (
-            <div key={exp.id} className="mb-4">
+          {allExperience.map((exp, index) => (
+            <div key={exp.id || `draft-${index}`} className="mb-4">
               <div className="flex justify-between items-baseline">
                 <h3 className="font-bold text-black text-sm">
                   {exp.company}
@@ -85,13 +93,13 @@ const ResumePreview = ({ resume }: ResumePreviewProps) => {
       )}
 
       {/* Education */}
-      {education && education.length > 0 && (
+      {allEducation && allEducation.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
             Educação
           </h2>
-          {education.map((edu) => (
-            <div key={edu.id} className="mb-3">
+          {allEducation.map((edu, index) => (
+            <div key={edu.id || `draft-${index}`} className="mb-3">
               <div className="flex justify-between items-baseline">
                 <h3 className="font-bold text-black text-sm">
                   {edu.institution}
@@ -103,19 +111,36 @@ const ResumePreview = ({ resume }: ResumePreviewProps) => {
               <p className="text-sm text-black">
                 {edu.degree} em {edu.field}
               </p>
+              {edu.description && (
+                <p className="text-sm text-black leading-relaxed mt-1">
+                  {edu.description}
+                </p>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {/* Skills */}
-      {skills.length > 0 && (
+      {allSkills.length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
-            Habilidades
+            Habilidades e Competências
           </h2>
           <p className="text-sm text-black">
-            {skills.map((skill) => skill.name).join(' • ')}
+            {allSkills.map((skill) => skill.name).join(' • ')}
+          </p>
+        </div>
+      )}
+
+      {/* Languages */}
+      {languages && languages.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
+            Idiomas
+          </h2>
+          <p className="text-sm text-black">
+            {languages.map((lang) => `${lang.name} (${lang.proficiency})`).join(' • ')}
           </p>
         </div>
       )}

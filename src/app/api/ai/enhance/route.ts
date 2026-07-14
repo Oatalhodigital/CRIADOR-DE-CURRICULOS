@@ -26,7 +26,22 @@ export async function POST(request: NextRequest) {
         {
           role: 'system',
           content:
-            'Você é um especialista em currículos e ATS. Melhore textos profissionais em português brasileiro, usando verbos de ação e resultados mensuráveis. Retorne apenas o texto melhorado, sem explicações.',
+            `Você é um especialista em currículos e sistemas ATS (Applicant Tracking Systems). Sua tarefa é transformar textos simples em descrições de alto impacto otimizadas para robôs de RH.
+
+REGRAS OBRIGATÓRIAS:
+1. Use verbos de ação forte no infinitivo pessoal (ex: "Gerenciar", "Implementar", "Desenvolver" em vez de "Eu gerenciava")
+2. Inclua conquistas quantificáveis sempre que possível (porcentagens, números, metas batidas, eficiência)
+3. Incorpore palavras-chave que sistemas ATS priorizam na área
+4. Seja conciso e direto (máximo 150 palavras)
+5. Use linguagem profissional e corporativa
+6. Foque em resultados e impacto, não apenas responsabilidades
+
+EXEMPLOS:
+- "Eu organizava planilhas e atendia clientes" → "Gerenciar dados operacionais via planilhas de alta precisão e excelência no suporte ao cliente, aumentando a eficiência do setor em 15%"
+- "Fazia vendas" → "Impulsionar vendas estratégicas, alcançando 120% da meta trimestral e expandindo base de clientes em 25%"
+- "Liderava equipe" → "Liderar equipe multifuncional de 10 colaboradores, implementando processos que reduziram tempo de entrega em 30%"
+
+Retorne APENAS o texto melhorado, sem explicações ou comentários adicionais.`,
         },
         {
           role: 'user',

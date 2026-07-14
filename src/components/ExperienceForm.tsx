@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Briefcase, Plus, Trash2, Building2 } from 'lucide-react';
 import { Experience } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
 
 const ExperienceForm = () => {
-  const { resume, addExperience, updateExperience, removeExperience } = useResume();
+  const { resume, addExperience, updateExperience, removeExperience, setDraftExperience } = useResume();
   const { experience } = resume;
 
   const [newExperience, setNewExperience] = useState<Partial<Experience>>({
@@ -18,6 +18,15 @@ const ExperienceForm = () => {
     current: false,
     description: '',
   });
+
+  // Update draft state in context for real-time preview
+  useEffect(() => {
+    if (newExperience.company || newExperience.position) {
+      setDraftExperience(newExperience);
+    } else {
+      setDraftExperience(null);
+    }
+  }, [newExperience, setDraftExperience]);
 
   const generateId = useCallback(() => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -42,6 +51,7 @@ const ExperienceForm = () => {
         current: false,
         description: '',
       });
+      setDraftExperience(null);
     }
   };
 

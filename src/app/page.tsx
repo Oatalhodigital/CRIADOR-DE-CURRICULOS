@@ -6,29 +6,45 @@ import PersonalInfoForm from '@/components/PersonalInfoForm'
 import ExperienceForm from '@/components/ExperienceForm'
 import EducationForm from '@/components/EducationForm'
 import SkillsForm from '@/components/SkillsForm'
+import LanguagesForm from '@/components/LanguagesForm'
 import SummaryForm from '@/components/SummaryForm'
 import ResumePreview from '@/components/ResumePreview'
 import LandingPage from '@/components/LandingPage'
-import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft } from 'lucide-react'
+import PricingCards from '@/components/PricingCards'
+import CompletionModal from '@/components/CompletionModal'
+import LeadCaptureModal from '@/components/LeadCaptureModal'
+import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
-type Step = 'personal' | 'experience' | 'education' | 'skills' | 'summary' | 'preview'
+type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'preview' | 'pricing'
 
 const steps = [
   { id: 'personal' as Step, label: 'Dados Pessoais', icon: User },
   { id: 'experience' as Step, label: 'Experiência', icon: Briefcase },
   { id: 'education' as Step, label: 'Educação', icon: GraduationCap },
-  { id: 'skills' as Step, label: 'Habilidades', icon: Zap },
-  { id: 'summary' as Step, label: 'Resumo', icon: FileText },
+  { id: 'skills' as Step, label: 'Habilidades e Competências', icon: Zap },
+  { id: 'languages' as Step, label: 'Idiomas', icon: Globe },
+  { id: 'summary' as Step, label: 'Objetivo Profissional', icon: FileText },
   { id: 'preview' as Step, label: 'Preview', icon: FileText },
+  { id: 'pricing' as Step, label: 'Pagamento', icon: CreditCard },
 ]
 
 export default function Home() {
-  const { resume } = useResume()
+  const { resume, draftExperience, draftEducation, draftSkill } = useResume()
   const [currentStep, setCurrentStep] = useState<Step>('personal')
   const [showLanding, setShowLanding] = useState(true)
+  const [showCompletion, setShowCompletion] = useState(false)
+  const [showLeadCapture, setShowLeadCapture] = useState(true)
+  const [selectedPlan, setSelectedPlan] = useState<'single' | 'weekly' | 'monthly' | null>(null)
 
   const handleStart = () => {
     setShowLanding(false)
+  }
+
+  const handleLeadCaptureComplete = (leadData: { name: string; email: string; whatsapp: string }) => {
+    // Save lead data to resume context for later use
+    setShowLeadCapture(false)
+    // Optionally update personal info with lead data
+    // updatePersonalInfo({ ...resume.personalInfo, fullName: leadData.name, email: leadData.email })
   }
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep)
@@ -37,7 +53,12 @@ export default function Home() {
 
   const handleNext = () => {
     if (canGoNext) {
-      setCurrentStep(steps[currentStepIndex + 1].id)
+      // If finishing preview step, show completion modal first
+      if (currentStep === 'preview') {
+        setShowCompletion(true)
+      } else {
+        setCurrentStep(steps[currentStepIndex + 1].id)
+      }
     }
   }
 
@@ -45,6 +66,17 @@ export default function Home() {
     if (canGoBack) {
       setCurrentStep(steps[currentStepIndex - 1].id)
     }
+  }
+
+  const handleCompletionComplete = () => {
+    setShowCompletion(false)
+    setCurrentStep('pricing')
+  }
+
+  const handleSelectPlan = (plan: 'single' | 'weekly' | 'monthly', includeCoverLetter?: boolean) => {
+    setSelectedPlan(plan)
+    // Here you would integrate with CheckoutModal
+    console.log('Selected plan:', plan, 'Include cover letter:', includeCoverLetter)
   }
 
   const renderForm = () => {
@@ -57,6 +89,8 @@ export default function Home() {
         return <EducationForm />
       case 'skills':
         return <SkillsForm />
+      case 'languages':
+        return <LanguagesForm />
       case 'summary':
         return <SummaryForm />
       case 'preview':
@@ -64,17 +98,28 @@ export default function Home() {
           <div className="text-center py-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Preview do Currículo</h2>
             <p className="text-gray-600 mb-6">
-              Revise seu currículo no painel ao lado. Quando estiver satisfeito, você poderá exportar o PDF.
+              Revise seu currículo no painel ao lado. Quando estiver satisfeito, clique em Continuar para finalizar.
             </p>
-            <button
-              onClick={handleBack}
-              className="px-6 py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4 inline mr-2" />
-              Editar
-            </button>
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={handleBack}
+                className="px-6 py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4 inline mr-2" />
+                Editar
+              </button>
+              <button
+                onClick={handleNext}
+                className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
+              >
+                Continuar
+                <ArrowRight className="w-4 h-4 inline ml-2" />
+              </button>
+            </div>
           </div>
         )
+      case 'pricing':
+        return <PricingCards onSelectPlan={handleSelectPlan} />
       default:
         return null
     }
@@ -148,7 +193,7 @@ export default function Home() {
             </div>
 
             {/* Navigation Buttons */}
-            {currentStep !== 'preview' && (
+            {currentStep !== 'preview' && currentStep !== 'pricing' && (
               <div className="flex justify-between items-center mt-6">
                 <button
                   onClick={handleBack}
@@ -175,11 +220,22 @@ export default function Home() {
         <div className="w-full lg:w-1/2 p-6 lg:p-8 overflow-y-auto bg-gray-100">
           <div className="max-w-2xl mx-auto">
             <div className="bg-white rounded-lg shadow-lg p-8" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}>
-              <ResumePreview resume={resume} />
+              <ResumePreview 
+                resume={resume} 
+                draftExperience={draftExperience}
+                draftEducation={draftEducation}
+                draftSkill={draftSkill}
+              />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Completion Modal */}
+      <CompletionModal isOpen={showCompletion} onComplete={handleCompletionComplete} />
+
+      {/* Lead Capture Modal */}
+      <LeadCaptureModal isOpen={showLeadCapture} onComplete={handleLeadCaptureComplete} />
     </div>
   )
 }

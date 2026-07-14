@@ -34,3 +34,6 @@ next-env.d.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Local AI/agent prompt drafts
+prompt-windsurf-melhorias.md

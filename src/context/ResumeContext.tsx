@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Resume, PersonalInfo, Experience, Education, Skill } from '@/types/resume';
+import { Resume, PersonalInfo, Experience, Education, Skill, Language } from '@/types/resume';
 import { auth, db } from '@/lib/firebase';
 
 interface ResumeContextType {
@@ -11,6 +11,9 @@ interface ResumeContextType {
   activeTemplate: 'classic' | 'modern' | 'minimalist';
   firebaseUser: User | null;
   firebaseReady: boolean;
+  draftExperience: Partial<Experience> | null;
+  draftEducation: Partial<Education> | null;
+  draftSkill: Partial<Skill> | null;
   setActiveTemplate: (template: 'classic' | 'modern' | 'minimalist') => void;
   updatePersonalInfo: (info: PersonalInfo) => void;
   addExperience: (experience: Experience) => void;
@@ -22,9 +25,15 @@ interface ResumeContextType {
   addSkill: (skill: Skill) => void;
   updateSkill: (id: string, skill: Skill) => void;
   removeSkill: (id: string) => void;
+  addLanguage: (language: Language) => void;
+  updateLanguage: (id: string, language: Language) => void;
+  removeLanguage: (id: string) => void;
   updateSummary: (summary: string) => void;
   setPaymentStatus: (paid: boolean, paymentId?: string) => void;
   setDraftId: (id: string) => void;
+  setDraftExperience: (experience: Partial<Experience> | null) => void;
+  setDraftEducation: (education: Partial<Education> | null) => void;
+  setDraftSkill: (skill: Partial<Skill> | null) => void;
 }
 
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
@@ -43,6 +52,7 @@ export const initialResume: Resume = {
   experience: [],
   education: [],
   skills: [],
+  languages: [],
   summary: '',
   paid: false,
 };
@@ -53,6 +63,9 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [draftId, setDraftIdState] = useState<string | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [firebaseReady, setFirebaseReady] = useState(!auth);
+  const [draftExperience, setDraftExperience] = useState<Partial<Experience> | null>(null);
+  const [draftEducation, setDraftEducation] = useState<Partial<Education> | null>(null);
+  const [draftSkill, setDraftSkill] = useState<Partial<Skill> | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Firebase Auth — anonymous sign-in
@@ -88,7 +101,16 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (savedResume) {
       try {
         const parsed = JSON.parse(savedResume);
-        setResume(parsed);
+        setResume({
+          ...initialResume,
+          ...parsed,
+          personalInfo: { ...initialPersonalInfo, ...parsed.personalInfo },
+          experience: parsed.experience ?? [],
+          education: parsed.education ?? [],
+          skills: parsed.skills ?? [],
+          languages: parsed.languages ?? [],
+          summary: parsed.summary ?? '',
+        });
         if (parsed.id) {
           setDraftIdState(parsed.id);
         }
@@ -206,6 +228,27 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }));
   };
 
+  const addLanguage = (language: Language) => {
+    setResume(prev => ({
+      ...prev,
+      languages: [...prev.languages, language],
+    }));
+  };
+
+  const updateLanguage = (id: string, language: Language) => {
+    setResume(prev => ({
+      ...prev,
+      languages: prev.languages.map(lang => lang.id === id ? language : lang),
+    }));
+  };
+
+  const removeLanguage = (id: string) => {
+    setResume(prev => ({
+      ...prev,
+      languages: prev.languages.filter(lang => lang.id !== id),
+    }));
+  };
+
   const updateSummary = (summary: string) => {
     setResume(prev => ({ ...prev, summary }));
   };
@@ -230,6 +273,9 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         activeTemplate,
         firebaseUser,
         firebaseReady,
+        draftExperience,
+        draftEducation,
+        draftSkill,
         setActiveTemplate,
         updatePersonalInfo,
         addExperience,
@@ -241,9 +287,15 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         addSkill,
         updateSkill,
         removeSkill,
+        addLanguage,
+        updateLanguage,
+        removeLanguage,
         updateSummary,
         setPaymentStatus,
         setDraftId,
+        setDraftExperience,
+        setDraftEducation,
+        setDraftSkill,
       }}
     >
       {children}

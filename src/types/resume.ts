@@ -25,6 +25,7 @@ export interface Education {
   startDate: string;
   endDate: string;
   current: boolean;
+  description?: string;
 }
 
 export interface Skill {
@@ -33,12 +34,19 @@ export interface Skill {
   level: 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
 }
 
+export interface Language {
+  id: string;
+  name: string;
+  proficiency: 'Basic' | 'Intermediate' | 'Advanced' | 'Fluent' | 'Native';
+}
+
 export interface Resume {
   id?: string;
   personalInfo: PersonalInfo;
   experience: Experience[];
   education: Education[];
   skills: Skill[];
+  languages: Language[];
   summary: string;
   createdAt?: Date;
   paid: boolean;

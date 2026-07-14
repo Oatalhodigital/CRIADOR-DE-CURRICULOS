@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GraduationCap, Plus, Trash2, School } from 'lucide-react';
 import { Education } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
+import AIEnhanceButton from './AIEnhanceButton';
 
 const EducationForm = () => {
-  const { resume, addEducation, updateEducation, removeEducation } = useResume();
+  const { resume, addEducation, updateEducation, removeEducation, setDraftEducation } = useResume();
   const { education } = resume;
 
   const [newEducation, setNewEducation] = useState<Partial<Education>>({
@@ -16,7 +17,17 @@ const EducationForm = () => {
     startDate: '',
     endDate: '',
     current: false,
+    description: '',
   });
+
+  // Update draft state in context for real-time preview
+  useEffect(() => {
+    if (newEducation.institution || newEducation.degree) {
+      setDraftEducation(newEducation);
+    } else {
+      setDraftEducation(null);
+    }
+  }, [newEducation, setDraftEducation]);
 
   const generateId = useCallback(() => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -32,6 +43,7 @@ const EducationForm = () => {
         startDate: newEducation.startDate || '',
         endDate: newEducation.endDate || '',
         current: newEducation.current || false,
+        description: newEducation.description || '',
       });
       setNewEducation({
         institution: '',
@@ -40,7 +52,9 @@ const EducationForm = () => {
         startDate: '',
         endDate: '',
         current: false,
+        description: '',
       });
+      setDraftEducation(null);
     }
   };
 
@@ -139,6 +153,24 @@ const EducationForm = () => {
             />
             <span className="text-sm font-medium text-gray-900">Cursando atualmente</span>
           </label>
+          
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="block text-sm font-semibold text-gray-900">Descrição (Opcional)</label>
+              <AIEnhanceButton
+                text={newEducation.description || ''}
+                context={`Formação em ${newEducation.degree} na instituição ${newEducation.institution}`}
+                onEnhanced={(enhanced: string) => setNewEducation({ ...newEducation, description: enhanced })}
+              />
+            </div>
+            <textarea
+              placeholder="Descreva atividades relevantes, projetos, honras..."
+              value={newEducation.description}
+              onChange={(e) => setNewEducation({ ...newEducation, description: e.target.value })}
+              rows={3}
+              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 resize-none text-gray-900 placeholder-gray-500"
+            />
+          </div>
           
           <button
             onClick={handleAdd}
