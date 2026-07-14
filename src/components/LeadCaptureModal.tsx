@@ -12,6 +12,7 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
+  const [consentMarketing, setConsentMarketing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,7 +38,7 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, whatsapp }),
+        body: JSON.stringify({ name, email, whatsapp, consentMarketing }),
       })
 
       if (!response.ok) {
@@ -124,6 +125,21 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
               {error}
             </div>
           )}
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentMarketing}
+              onChange={(e) => setConsentMarketing(e.target.checked)}
+              className="w-5 h-5 text-emerald-600 rounded focus:ring-emerald-600 focus:ring-offset-0 mt-0.5 flex-shrink-0"
+            />
+            <span className="text-xs text-gray-600 leading-relaxed">
+              Concordo em receber comunicações por e-mail sobre o serviço, incluindo lembretes e dicas para melhorar meu currículo. 
+              <a href="/politica-privacidade" className="text-emerald-600 hover:underline ml-1">
+                Ver Política de Privacidade
+              </a>
+            </span>
+          </label>
 
           <button
             type="submit"

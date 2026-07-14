@@ -38,12 +38,15 @@ const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill }: 
                 <span>{personalInfo.phone}</span>
               </>
             )}
-            {personalInfo.address && (
-              <>
-                <span className="text-gray-400">|</span>
-                <span>{personalInfo.address}</span>
-              </>
-            )}
+          </p>
+          <p className="flex flex-wrap gap-x-3 gap-y-1">
+            {personalInfo.address && <span>{personalInfo.address}</span>}
+            {personalInfo.city && personalInfo.address && <span className="text-gray-400">|</span>}
+            {personalInfo.city && <span>{personalInfo.city}</span>}
+            {personalInfo.state && personalInfo.city && <span className="text-gray-400">-</span>}
+            {personalInfo.state && <span>{personalInfo.state}</span>}
+            {personalInfo.zipCode && (personalInfo.city || personalInfo.state) && <span className="text-gray-400">|</span>}
+            {personalInfo.zipCode && <span>CEP: {personalInfo.zipCode}</span>}
           </p>
           <p className="flex flex-wrap gap-x-3 gap-y-1">
             {personalInfo.linkedin && <span>{personalInfo.linkedin}</span>}

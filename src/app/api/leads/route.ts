@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, whatsapp } = body;
+    const { name, email, whatsapp, consentMarketing } = body;
 
     if (!name || !email || !whatsapp) {
       return NextResponse.json(
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
         name,
         email,
         whatsapp,
+        consentMarketing: consentMarketing || false,
         status: 'new',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

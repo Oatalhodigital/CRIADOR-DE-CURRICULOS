@@ -43,6 +43,9 @@ const initialPersonalInfo: PersonalInfo = {
   email: '',
   phone: '',
   address: '',
+  city: '',
+  state: '',
+  zipCode: '',
   linkedin: '',
   website: '',
 };
