@@ -1,17 +1,38 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import { Resume } from '../types/resume';
 
-const styles = StyleSheet.create({
+// Register fonts for PDF generation
+Font.register({
+  family: 'Helvetica',
+  fonts: [
+    { src: 'https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@0.0.4/dist/standard_fonts/Helvetica.ttf' },
+  ],
+});
+
+Font.register({
+  family: 'Times',
+  fonts: [
+    { src: 'https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@0.0.4/dist/standard_fonts/Times-Roman.ttf' },
+  ],
+});
+
+interface ResumePDFProps {
+  resume: Resume;
+  font?: 'Helvetica' | 'Times';
+  accentColor?: '#000000' | '#1E3A8A' | '#374151';
+}
+
+const createStyles = (font: string, accentColor: string) => StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#FFFFFF',
     padding: 40,
-    fontFamily: 'Helvetica',
+    fontFamily: font,
   },
   header: {
     borderBottomWidth: 2,
-    borderBottomColor: '#000000',
+    borderBottomColor: accentColor,
     paddingBottom: 16,
     marginBottom: 24,
   },
@@ -20,10 +41,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 4,
     textTransform: 'uppercase',
+    color: '#000000',
   },
   contactInfo: {
     fontSize: 10,
     marginBottom: 4,
+    color: '#000000',
   },
   sectionTitle: {
     fontSize: 14,
@@ -31,8 +54,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textTransform: 'uppercase',
     borderBottomWidth: 1,
-    borderBottomColor: '#CCCCCC',
+    borderBottomColor: accentColor,
     paddingBottom: 4,
+    color: accentColor,
   },
   section: {
     marginBottom: 20,
@@ -75,14 +99,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 1.4,
   },
+  languageItem: {
+    fontSize: 10,
+    marginBottom: 2,
+  },
 });
 
-interface ResumePDFProps {
-  resume: Resume;
-}
-
-const ResumePDF: React.FC<ResumePDFProps> = ({ resume }) => {
-  const { personalInfo, experience, education, skills, summary } = resume;
+const ResumePDF: React.FC<ResumePDFProps> = ({ resume, font = 'Helvetica', accentColor = '#000000' }) => {
+  const { personalInfo, experience, education, skills, languages, summary } = resume;
+  const styles = createStyles(font, accentColor);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -98,7 +123,15 @@ const ResumePDF: React.FC<ResumePDFProps> = ({ resume }) => {
         <View style={styles.header}>
           <Text style={styles.name}>{personalInfo.fullName || 'SEU NOME'}</Text>
           <Text style={styles.contactInfo}>
-            {[personalInfo.email, personalInfo.phone, personalInfo.address].filter(Boolean).join(' | ')}
+            {[personalInfo.email, personalInfo.phone].filter(Boolean).join(' | ')}
+          </Text>
+          <Text style={styles.contactInfo}>
+            {[
+              personalInfo.address,
+              personalInfo.city,
+              personalInfo.state,
+              personalInfo.zipCode ? `CEP: ${personalInfo.zipCode}` : null
+            ].filter(Boolean).join(', ')}
           </Text>
           <Text style={styles.contactInfo}>
             {[personalInfo.linkedin, personalInfo.website].filter(Boolean).join(' | ')}
@@ -108,7 +141,7 @@ const ResumePDF: React.FC<ResumePDFProps> = ({ resume }) => {
         {/* Summary */}
         {summary && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Resumo Profissional</Text>
+            <Text style={styles.sectionTitle}>Objetivo Profissional</Text>
             <Text style={styles.summary}>{summary}</Text>
           </View>
         )}
@@ -151,8 +184,20 @@ const ResumePDF: React.FC<ResumePDFProps> = ({ resume }) => {
         {/* Skills */}
         {skills.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Habilidades</Text>
+            <Text style={styles.sectionTitle}>Habilidades e Competências</Text>
             <Text style={styles.skills}>{skills.map((skill) => skill.name).join(' • ')}</Text>
+          </View>
+        )}
+
+        {/* Languages */}
+        {languages && languages.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Idiomas</Text>
+            {languages.map((lang, index) => (
+              <Text key={index} style={styles.languageItem}>
+                {lang.name} ({lang.proficiency})
+              </Text>
+            ))}
           </View>
         )}
       </Page>
