@@ -5,9 +5,10 @@ interface ResumePreviewProps {
   draftExperience?: Partial<Experience> | null;
   draftEducation?: Partial<Education> | null;
   draftSkill?: Partial<Skill> | null;
+  isPaid?: boolean;
 }
 
-const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill }: ResumePreviewProps) => {
+const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill, isPaid = false }: ResumePreviewProps) => {
   const { personalInfo, experience, education, skills, languages, summary } = resume;
 
   // Combine existing items with draft items for real-time preview
@@ -23,7 +24,19 @@ const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill }: 
   };
 
   return (
-    <div className="w-[210mm] min-h-[297mm] bg-white p-10 shadow-2xl text-black mx-auto print:shadow-none print:p-8 print:w-full print:min-h-full font-sans rounded-sm" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)' }}>
+    <div className="relative">
+      {/* Watermark overlay for unpaid users */}
+      {!isPaid && (
+        <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
+          <div className="relative text-center transform -rotate-45 opacity-20">
+            <p className="text-6xl font-bold text-gray-400 tracking-wider">NÃO PAGO</p>
+            <p className="text-2xl text-gray-400 mt-2">Pré-visualização</p>
+          </div>
+        </div>
+      )}
+
+      <div className={`w-[210mm] min-h-[297mm] bg-white p-10 shadow-2xl text-black mx-auto print:shadow-none print:p-8 print:w-full print:min-h-full font-sans rounded-sm ${!isPaid ? 'blur-[2px]' : ''}`} style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)' }}>
       {/* Header - ATS Friendly */}
       <div className="border-b-2 border-black pb-4 mb-6">
         <h1 className="text-3xl font-bold text-black tracking-normal mb-1 uppercase">
@@ -156,6 +169,7 @@ const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill }: 
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 };

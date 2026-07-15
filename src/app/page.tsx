@@ -13,6 +13,7 @@ import LandingPage from '@/components/LandingPage'
 import PricingCards from '@/components/PricingCards'
 import CompletionModal from '@/components/CompletionModal'
 import LeadCaptureModal from '@/components/LeadCaptureModal'
+import CheckoutModal from '@/components/CheckoutModal'
 import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'preview' | 'pricing'
@@ -35,6 +36,8 @@ export default function Home() {
   const [showCompletion, setShowCompletion] = useState(false)
   const [showLeadCapture, setShowLeadCapture] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState<'single' | 'weekly' | 'monthly' | null>(null)
+  const [isPaid, setIsPaid] = useState(false)
+  const [showCheckout, setShowCheckout] = useState(false)
 
   const handleStart = () => {
     setShowLanding(false)
@@ -75,8 +78,12 @@ export default function Home() {
 
   const handleSelectPlan = (plan: 'single' | 'weekly' | 'monthly', includeCoverLetter?: boolean) => {
     setSelectedPlan(plan)
-    // Here you would integrate with CheckoutModal
-    console.log('Selected plan:', plan, 'Include cover letter:', includeCoverLetter)
+    setShowCheckout(true)
+  }
+
+  const handlePaymentSuccess = () => {
+    setIsPaid(true)
+    setShowCheckout(false)
   }
 
   const renderForm = () => {
@@ -225,6 +232,7 @@ export default function Home() {
                 draftExperience={draftExperience}
                 draftEducation={draftEducation}
                 draftSkill={draftSkill}
+                isPaid={isPaid}
               />
             </div>
           </div>
@@ -236,6 +244,13 @@ export default function Home() {
 
       {/* Lead Capture Modal */}
       <LeadCaptureModal isOpen={showLeadCapture} onComplete={handleLeadCaptureComplete} />
+
+      {/* Checkout Modal */}
+      <CheckoutModal 
+        isOpen={showCheckout} 
+        onClose={() => setShowCheckout(false)}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
     </div>
   )
 }
