@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { amount = 10, email } = await request.json();
+    const { amount = 10, email, leadId } = await request.json();
 
     if (!email) {
       return NextResponse.json({ error: 'E-mail é obrigatório.' }, { status: 400 });
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         description: 'Currículo Profissional ATS - LS Soluções Digitais',
         payment_method_id: 'pix',
         payer: { email },
+        external_reference: leadId || `payment-${Date.now()}`,
       },
     });
 

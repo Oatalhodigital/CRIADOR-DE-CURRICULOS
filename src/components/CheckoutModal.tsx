@@ -10,11 +10,11 @@ interface PaymentData {
   qr_code_base64: string;
 }
 
-const createPixPayment = async (amount: number, email: string): Promise<PaymentData> => {
+const createPixPayment = async (amount: number, email: string, leadId?: string): Promise<PaymentData> => {
   const res = await fetch('/api/payment/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount, email }),
+    body: JSON.stringify({ amount, email, leadId }),
   });
 
   if (!res.ok) {
@@ -84,7 +84,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setError(null);
 
     try {
-      const data = await createPixPayment(10, resume.personalInfo.email);
+      const data = await createPixPayment(10, resume.personalInfo.email, resume.id);
       setPaymentData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar pagamento. Tente novamente.');
