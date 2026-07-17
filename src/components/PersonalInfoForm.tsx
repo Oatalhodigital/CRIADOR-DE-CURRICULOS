@@ -38,18 +38,25 @@ const PersonalInfoForm = () => {
     }
   };
 
+  const fetchWithTimeout = (url: string, timeoutMs = 8000): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+  };
+
   const fetchAddressByCep = async (cep: string) => {
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const response = await fetchWithTimeout(`https://viacep.com.br/ws/${cep}/json/`);
+      if (!response.ok) return;
       const data = await response.json();
-      
-      if (!data.erro) {
+
+      if (!data?.erro) {
         handleChange('address', data.logradouro || '');
         handleChange('city', data.localidade || '');
         handleChange('state', data.uf || '');
       }
     } catch (error) {
-      console.error('Error fetching address:', error);
+      console.error('PersonalInfoForm: Error fetching address:', error);
     }
   };
 
@@ -67,26 +74,30 @@ const PersonalInfoForm = () => {
   const fetchCitySuggestions = async (query: string) => {
     setIsLoadingCity(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://servicodados.ibge.gov.br/api/v1/localidades/municipios?nome=${encodeURIComponent(query)}`
       );
+      if (!response.ok) {
+        throw new Error(`IBGE API error: ${response.status}`);
+      }
       const data = await response.json();
-      
-      const suggestions = data
-        .filter((city: any) => 
-          city.microrregiao.mesorregiao.UF.sigla === personalInfo.state || !personalInfo.state
+
+      const suggestions = (Array.isArray(data) ? data : [])
+        .filter((city: any) =>
+          city?.microrregiao?.mesorregiao?.UF?.sigla === personalInfo.state || !personalInfo.state
         )
         .slice(0, 5)
         .map((city: any) => ({
-          nome: city.nome,
-          uf: city.microrregiao.mesorregiao.UF.sigla,
+          nome: city.nome || '',
+          uf: city?.microrregiao?.mesorregiao?.UF?.sigla || '',
         }));
-      
+
       setCitySuggestions(suggestions);
       setShowCityDropdown(suggestions.length > 0);
     } catch (error) {
-      console.error('Error fetching city suggestions:', error);
+      console.error('PersonalInfoForm: Error fetching city suggestions:', error);
       setCitySuggestions([]);
+      setShowCityDropdown(false);
     } finally {
       setIsLoadingCity(false);
     }

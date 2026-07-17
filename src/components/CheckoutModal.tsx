@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
 
@@ -10,15 +10,23 @@ interface PaymentData {
   qr_code_base64: string;
 }
 
+const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timeoutId));
+};
+
 const createPixPayment = async (amount: number, email: string, leadId?: string): Promise<PaymentData> => {
-  const res = await fetch('/api/payment/create', {
+  const res = await fetchWithTimeout('/api/payment/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount, email, leadId }),
   });
 
   if (!res.ok) {
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Erro ao criar pagamento.');
   }
 
@@ -26,7 +34,7 @@ const createPixPayment = async (amount: number, email: string, leadId?: string):
 };
 
 const checkPaymentStatus = async (paymentId: string): Promise<boolean> => {
-  const res = await fetch(`/api/payment/status/${paymentId}`);
+  const res = await fetchWithTimeout(`/api/payment/status/${paymentId}`);
 
   if (!res.ok) {
     return false;
@@ -35,6 +43,9 @@ const checkPaymentStatus = async (paymentId: string): Promise<boolean> => {
   const data = await res.json();
   return data.approved === true;
 };
+
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLL_ATTEMPTS = 60; // 5 minutos de polling
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -53,46 +64,84 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'failed'>('pending');
+  const pollCountRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  const createPayment = useCallback(async () => {
+    if (!resume.personalInfo.email) {
+      setError('E-mail não encontrado. Preencha seus dados pessoais.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await createPixPayment(10, resume.personalInfo.email, resume.id);
+      if (isMountedRef.current) {
+        setPaymentData(data);
+      }
+    } catch (err) {
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Erro ao criar pagamento. Tente novamente.');
+      }
+      console.error('CheckoutModal: create payment error', err);
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [resume.personalInfo.email, resume.id]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen && !paymentData && resume.personalInfo.email) {
       createPayment();
     }
-  }, [isOpen]);
+  }, [isOpen, paymentData, resume.personalInfo.email, createPayment]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     if (paymentStatus === 'pending' && paymentData) {
       interval = setInterval(async () => {
-        const isApproved = await checkPaymentStatus(paymentData.id);
-        if (isApproved) {
-          setPaymentStatus('approved');
-          onPaymentSuccess();
-          clearInterval(interval);
+        try {
+          if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
+            clearInterval(interval);
+            if (isMountedRef.current) {
+              setError('Tempo de espera pelo pagamento excedido. Verifique manualmente.');
+            }
+            return;
+          }
+
+          pollCountRef.current += 1;
+          const isApproved = await checkPaymentStatus(paymentData.id);
+
+          if (!isMountedRef.current) return;
+
+          if (isApproved) {
+            setPaymentStatus('approved');
+            onPaymentSuccess();
+            clearInterval(interval);
+          }
+        } catch (err) {
+          console.error('CheckoutModal: polling error', err);
+          // Não interrompe o polling por um erro isolado
         }
-      }, 5000);
+      }, POLL_INTERVAL_MS);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [paymentStatus, paymentData, onPaymentSuccess]);
-
-  const createPayment = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const data = await createPixPayment(10, resume.personalInfo.email, resume.id);
-      setPaymentData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar pagamento. Tente novamente.');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCheckStatus = async () => {
     if (!paymentData) return;
@@ -106,8 +155,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       } else {
         setError('Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.');
       }
-    } catch {
+    } catch (err) {
       setError('Erro ao verificar status do pagamento.');
+      console.error('CheckoutModal: manual status check error', err);
     } finally {
       setIsChecking(false);
     }

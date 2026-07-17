@@ -11,6 +11,14 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'firestore'): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timeout`)), ms)
+    ),
+  ]);
+
 export async function POST(request: NextRequest) {
   if (!db) {
     return NextResponse.json(
@@ -29,23 +37,28 @@ export async function POST(request: NextRequest) {
     const id = resume.id || doc(collection(db, 'resumes')).id;
     const docRef = doc(db, 'resumes', id);
 
-    await setDoc(
-      docRef,
-      {
-        ...resume,
-        id,
-        updatedAt: serverTimestamp(),
-        createdAt: resume.createdAt || serverTimestamp(),
-      },
-      { merge: true }
+    await withTimeout(
+      setDoc(
+        docRef,
+        {
+          ...resume,
+          id,
+          updatedAt: serverTimestamp(),
+          createdAt: resume.createdAt || serverTimestamp(),
+        },
+        { merge: true }
+      ),
+      10000,
+      'resume save'
     );
 
     return NextResponse.json({ id });
-  } catch (error) {
-    console.error('Resume save error:', error);
+  } catch (error: any) {
+    console.error('Resume save error:', { error, timestamp: new Date().toISOString() });
+    const status = error?.message?.includes('timeout') ? 504 : 500;
     return NextResponse.json(
-      { error: 'Falha ao salvar currículo.' },
-      { status: 500 }
+      { error: error?.message?.includes('timeout') ? 'Tempo esgotado ao salvar currículo.' : 'Falha ao salvar currículo.' },
+      { status }
     );
   }
 }
@@ -71,7 +84,7 @@ export async function GET(request: NextRequest) {
       orderBy('updatedAt', 'desc'),
       limit(50)
     );
-    const snapshot = await getDocs(q);
+    const snapshot = await withTimeout(getDocs(q), 10000, 'resume list');
 
     const resumes = snapshot.docs.map((d) => {
       const data = d.data();
@@ -99,11 +112,12 @@ export async function GET(request: NextRequest) {
         conversionRate,
       },
     });
-  } catch (error) {
-    console.error('Resume list error:', error);
+  } catch (error: any) {
+    console.error('Resume list error:', { error, timestamp: new Date().toISOString() });
+    const status = error?.message?.includes('timeout') ? 504 : 500;
     return NextResponse.json(
-      { error: 'Falha ao listar currículos.' },
-      { status: 500 }
+      { error: error?.message?.includes('timeout') ? 'Tempo esgotado ao listar currículos.' : 'Falha ao listar currículos.' },
+      { status }
     );
   }
 }

@@ -50,22 +50,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   try {
     const { text, context } = await request.json();
 
     if (!text?.trim()) {
+      clearTimeout(timeoutId);
       return NextResponse.json({ error: 'Texto é obrigatório.' }, { status: 400 });
     }
 
     const openai = new OpenAI({ apiKey });
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content:
-            `Você é um especialista em currículos e sistemas ATS (Applicant Tracking Systems). Sua tarefa é transformar textos simples em descrições de alto impacto otimizadas para robôs de RH.
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              `Você é um especialista em currículos e sistemas ATS (Applicant Tracking Systems). Sua tarefa é transformar textos simples em descrições de alto impacto otimizadas para robôs de RH.
 
 REGRAS OBRIGATÓRIAS:
 1. Use verbos de ação forte no infinitivo pessoal (ex: "Gerenciar", "Implementar", "Desenvolver" em vez de "Eu gerenciava")
@@ -81,24 +85,44 @@ EXEMPLOS:
 - "Liderava equipe" → "Liderar equipe multifuncional de 10 colaboradores, implementando processos que reduziram tempo de entrega em 30%"
 
 Retorne APENAS o texto melhorado, sem explicações ou comentários adicionais.`,
-        },
-        {
-          role: 'user',
-          content: `Contexto: ${context || 'Currículo profissional'}\n\nTexto para melhorar:\n${text}`,
-        },
-      ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
+          },
+          {
+            role: 'user',
+            content: `Contexto: ${context || 'Currículo profissional'}\n\nTexto para melhorar:\n${text}`,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }, {
+        signal: controller.signal,
+      });
 
-    const enhanced = completion.choices[0]?.message?.content?.trim() || text;
+      clearTimeout(timeoutId);
+      const enhanced = completion.choices[0]?.message?.content?.trim() || text;
 
-    return NextResponse.json({ enhanced });
-  } catch (error) {
-    console.error('AI enhance error:', error);
-    return NextResponse.json(
-      { error: 'Falha ao processar texto com IA.' },
-      { status: 500 }
-    );
-  }
+      return NextResponse.json({ enhanced });
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error('AI enhance error:', error);
+
+      if (error?.name === 'AbortError' || error?.code === 'ETIMEDOUT') {
+        return NextResponse.json({ error: 'Tempo esgotado ao processar com IA.' }, { status: 504 });
+      }
+
+      const status = error?.status;
+      if (status === 401 || status === 403) {
+        return NextResponse.json({ error: 'Chave da OpenAI inválida ou sem permissão.' }, { status });
+      }
+      if (status === 429) {
+        return NextResponse.json({ error: 'Limite de requisições da OpenAI atingido. Tente novamente mais tarde.' }, { status });
+      }
+      if (status >= 500) {
+        return NextResponse.json({ error: 'Erro no serviço da OpenAI.' }, { status });
+      }
+
+      return NextResponse.json(
+        { error: 'Falha ao processar texto com IA.' },
+        { status: 500 }
+      );
+    }
 }

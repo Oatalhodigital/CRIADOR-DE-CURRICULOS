@@ -8,6 +8,13 @@ import AIEnhanceButton from './AIEnhanceButton';
 const SummaryForm = () => {
   const { resume, updateSummary } = useResume();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+  };
 
   const handleGenerateSummary = async () => {
     if (resume.experience.length === 0 || resume.skills.length === 0) {
@@ -15,8 +22,9 @@ const SummaryForm = () => {
     }
 
     setIsGenerating(true);
+    setError(null);
     try {
-      const res = await fetch('/api/ai/summary', {
+      const res = await fetchWithTimeout('/api/ai/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -26,7 +34,7 @@ const SummaryForm = () => {
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Falha ao gerar resumo.');
       }
 
@@ -34,7 +42,9 @@ const SummaryForm = () => {
       if (data.summary) {
         updateSummary(data.summary);
       }
-    } catch (error) {
+    } catch (error: any) {
+      const message = error?.name === 'AbortError' ? 'Tempo esgotado. Tente novamente.' : (error instanceof Error ? error.message : 'Erro ao gerar resumo.');
+      setError(message);
       console.error('Failed to generate summary:', error);
     } finally {
       setIsGenerating(false);
@@ -55,9 +65,15 @@ const SummaryForm = () => {
     <div className="space-y-5">
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Objetivo Profissional</h2>
       
+      {error && (
+        <div id="summary-error" role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
       <div className="space-y-2">
         <div className="flex justify-between items-center">
-          <label className="block text-sm font-semibold text-gray-900">Objetivo Profissional</label>
+          <label htmlFor="summary-textarea" className="block text-sm font-semibold text-gray-900">Objetivo Profissional</label>
           <div className="flex gap-2">
             <button
               type="button"
@@ -77,10 +93,12 @@ const SummaryForm = () => {
           </div>
         </div>
         <textarea
+          id="summary-textarea"
           value={resume.summary}
           onChange={(e) => updateSummary(e.target.value)}
           placeholder="Descreva seus objetivos profissionais e o que você busca em sua próxima posição..."
           rows={6}
+          aria-describedby={error ? 'summary-error' : undefined}
           className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500 resize-none"
         />
       </div>

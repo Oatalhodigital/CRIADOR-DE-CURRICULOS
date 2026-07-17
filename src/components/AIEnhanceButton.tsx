@@ -19,13 +19,19 @@ const AIEnhanceButton = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+  };
+
   const handleEnhance = async () => {
     if (!text.trim()) return;
 
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/ai/enhance', {
+      const res = await fetchWithTimeout('/api/ai/enhance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, context }),

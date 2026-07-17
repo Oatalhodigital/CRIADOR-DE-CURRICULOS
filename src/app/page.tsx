@@ -30,7 +30,7 @@ const steps = [
 ]
 
 export default function Home() {
-  const { resume, draftExperience, draftEducation, draftSkill } = useResume()
+  const { resume, updatePersonalInfo, draftExperience, draftEducation, draftSkill } = useResume()
   const [currentStep, setCurrentStep] = useState<Step>('personal')
   const [showLanding, setShowLanding] = useState(true)
   const [showCompletion, setShowCompletion] = useState(false)
@@ -44,10 +44,13 @@ export default function Home() {
   }
 
   const handleLeadCaptureComplete = (leadData: { name: string; email: string; whatsapp: string }) => {
-    // Save lead data to resume context for later use
     setShowLeadCapture(false)
-    // Optionally update personal info with lead data
-    // updatePersonalInfo({ ...resume.personalInfo, fullName: leadData.name, email: leadData.email })
+    updatePersonalInfo({
+      ...resume.personalInfo,
+      fullName: leadData.name,
+      email: leadData.email,
+      phone: leadData.whatsapp,
+    })
   }
 
   const currentStepIndex = steps.findIndex(s => s.id === currentStep)

@@ -69,7 +69,8 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [draftExperience, setDraftExperience] = useState<Partial<Experience> | null>(null);
   const [draftEducation, setDraftEducation] = useState<Partial<Education> | null>(null);
   const [draftSkill, setDraftSkill] = useState<Partial<Skill> | null>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const authAttemptedRef = useRef(false);
 
   // Firebase Auth — anonymous sign-in
   useEffect(() => {
@@ -82,16 +83,40 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (user) {
         setFirebaseUser(user);
         setFirebaseReady(true);
-      } else {
-        try {
-          if (!auth) return;
-          const credential = await signInAnonymously(auth);
-          setFirebaseUser(credential.user);
-        } catch (error) {
-          console.error('Firebase auth failed:', error);
-        } finally {
-          setFirebaseReady(true);
+        return;
+      }
+
+      if (authAttemptedRef.current) {
+        setFirebaseReady(true);
+        return;
+      }
+      authAttemptedRef.current = true;
+
+      try {
+        if (!auth) return;
+
+        // Timeout para evitar travamento em caso de erro de configuração
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Firebase auth timeout')), 10000)
+        );
+
+        const authPromise = signInAnonymously(auth);
+        const credential = await Promise.race([authPromise, timeoutPromise]);
+
+        setFirebaseUser(credential.user);
+      } catch (error: any) {
+        console.error('Firebase auth failed:', {
+          code: error?.code,
+          message: error?.message,
+          timestamp: new Date().toISOString()
+        });
+
+        // Se for erro de configuração, não trava o app - continua sem autenticação
+        if (error?.code === 'auth/configuration-not-found' || error?.message === 'Firebase auth timeout') {
+          console.warn('Firebase Auth não configurado corretamente. App funcionará em modo local.');
         }
+      } finally {
+        setFirebaseReady(true);
       }
     });
 
@@ -152,8 +177,12 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             }
           }
         }
-      } catch (error) {
-        console.error('Auto-save failed:', error);
+      } catch (error: any) {
+        console.error('Auto-save failed:', {
+          code: error?.code,
+          message: error?.message,
+          timestamp: new Date().toISOString(),
+        });
       }
     }, 1500);
 
