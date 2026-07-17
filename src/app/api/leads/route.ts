@@ -1,31 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { FieldValue } from 'firebase-admin/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
-const withTimeout = <T,>(promise: Promise<T>, ms = 8000, label = 'operation'): Promise<T> => {
-  return Promise.race([
+const withTimeout = <T,>(promise: Promise<T>, ms = 6000, label = 'operation'): Promise<T> =>
+  Promise.race([
     promise,
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`${label} timeout`)), ms)
     ),
   ]);
-};
 
 export async function POST(request: NextRequest) {
+  const start = Date.now();
+  console.log('[api/leads] start', { timestamp: new Date().toISOString() });
+
   try {
-    if (!db) {
+    if (!adminDb) {
+      console.error('[api/leads] Firebase Admin SDK não configurado');
       return NextResponse.json(
-        { error: 'Firebase não configurado. Verifique as variáveis de ambiente.' },
+        { error: 'Firebase não configurado no servidor.' },
         { status: 503 }
       );
     }
 
-    const body = await request.json();
-    const { name, email, whatsapp, consentMarketing } = body;
+    let body: any;
+    try {
+      body = await request.json();
+    } catch (parseErr) {
+      console.error('[api/leads] JSON inválido', parseErr);
+      return NextResponse.json({ error: 'Corpo da requisição inválido.' }, { status: 400 });
+    }
+
+    const { name, email, whatsapp, consentMarketing } = body || {};
 
     if (!name || !email || !whatsapp) {
+      console.warn('[api/leads] campos obrigatórios ausentes', { body });
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Preencha nome, e-mail e WhatsApp.' },
         { status: 400 }
       );
     }
@@ -33,29 +44,33 @@ export async function POST(request: NextRequest) {
     const leadId = `lead-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     await withTimeout(
-      setDoc(doc(db, 'leads', leadId), {
+      adminDb.collection('leads').doc(leadId).set({
         name,
         email,
         whatsapp,
         consentMarketing: consentMarketing || false,
         status: 'new',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       }),
-      8000,
+      6000,
       'save lead'
     );
 
-    return NextResponse.json(
-      { success: true, leadId },
-      { status: 200 }
-    );
+    console.log('[api/leads] saved', { leadId, email, durationMs: Date.now() - start });
+    return NextResponse.json({ success: true, leadId }, { status: 200 });
   } catch (error: any) {
-    console.error('Error saving lead:', error);
-    const status = error?.message?.includes('timeout') ? 504 : 500;
+    console.error('[api/leads] error', {
+      error: error?.message || String(error),
+      stack: error?.stack,
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - start,
+    });
+
+    const isTimeout = error?.message?.includes('timeout');
     return NextResponse.json(
-      { error: error?.message?.includes('timeout') ? 'Tempo esgotado ao salvar lead.' : 'Failed to save lead data' },
-      { status }
+      { error: isTimeout ? 'Tempo esgotado ao salvar lead.' : 'Falha ao salvar lead.' },
+      { status: isTimeout ? 504 : 500 }
     );
   }
 }

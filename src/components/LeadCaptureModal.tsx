@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { User, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react'
 import { auth } from '@/lib/firebase'
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
@@ -19,6 +19,44 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  const backgroundSave = async (payload: object, retries = 3) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000)
+        const response = await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+          keepalive: true,
+        })
+        clearTimeout(timeoutId)
+
+        if (response.ok) {
+          console.log('LeadCaptureModal: background save succeeded', { attempt })
+          return
+        }
+        console.warn('LeadCaptureModal: background save attempt failed', { status: response.status, attempt })
+      } catch (err) {
+        console.error('LeadCaptureModal: background save attempt error', { attempt, err })
+      }
+
+      if (attempt < retries) {
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt))
+      }
+    }
+    console.error('LeadCaptureModal: background save exhausted retries')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -36,15 +74,16 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
     setIsLoading(true)
 
-    // AbortController + timeout: cancela a requisição e sempre reseta o loading
+    const payload = { name, email, whatsapp, consentMarketing }
+    // Timeout de 7s no cliente (menor que o timeout server de 6s + margem de rede)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 7000)
 
     try {
       const response = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, whatsapp, consentMarketing }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       })
 
@@ -55,23 +94,26 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
         throw new Error(errorData.error || 'Erro ao salvar seus dados')
       }
 
+      console.log('LeadCaptureModal: lead saved synchronously', { email })
       onComplete({ name, email, whatsapp })
     } catch (err) {
       clearTimeout(timeoutId)
-      let message = 'Erro ao processar. Tente novamente.'
 
-      if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          message = 'Tempo esgotado. Verifique sua conexão e tente novamente.'
-        } else {
-          message = err.message
-        }
+      let userMessage = 'Salvamento demorou, mas você pode continuar. Tentaremos novamente em segundo plano.'
+      if (err instanceof Error && err.name !== 'AbortError') {
+        userMessage = `${err.message}. Você pode continuar; tentaremos salvar novamente.`
       }
 
-      setError(message)
-      console.error('LeadCaptureModal: Submission error', { error: err, context: { name, email } })
+      if (mountedRef.current) setError(userMessage)
+      console.error('LeadCaptureModal: synchronous save failed, advancing user', { error: err, context: { name, email } })
+
+      // Avança o usuário imediatamente e tenta salvar em segundo plano
+      onComplete({ name, email, whatsapp })
+
+      // Retry em segundo plano (sobrevive a desmontagem do modal graças ao keepalive)
+      backgroundSave(payload, 3)
     } finally {
-      setIsLoading(false)
+      if (mountedRef.current) setIsLoading(false)
     }
   }
 

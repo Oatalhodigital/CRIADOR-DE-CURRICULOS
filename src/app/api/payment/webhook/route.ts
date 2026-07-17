@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'webhook'): Promise<T> =>
   Promise.race([
@@ -12,9 +11,13 @@ const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'webhook'): Pr
   ]);
 
 export async function POST(request: NextRequest) {
+  const start = Date.now();
   const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
+  console.log('[api/payment/webhook] start', { timestamp: new Date().toISOString() });
+
   if (!accessToken) {
+    console.error('[api/payment/webhook] MERCADO_PAGO_ACCESS_TOKEN não configurado');
     return NextResponse.json(
       { error: 'Pagamento não configurado.' },
       { status: 503 }
@@ -25,46 +28,60 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { data, type } = body;
 
-    // Mercado Pago sends webhook notifications for payment events
     if (type === 'payment' && data?.id) {
       const paymentId = data.id;
 
-      // Verify payment status with Mercado Pago
       const client = new MercadoPagoConfig({ accessToken });
       const payment = new Payment(client);
 
-      const paymentData = await withTimeout(payment.get({ id: paymentId }), 10000, 'webhook payment get');
+      const paymentData = await withTimeout(
+        payment.get({ id: paymentId }),
+        10000,
+        'webhook payment get'
+      );
 
       if (paymentData.status === 'approved') {
-        // Find the lead/resume associated with this payment
-        // For simplicity, we'll store the payment ID in the leads collection
-        // In production, you'd have a proper payments collection
-        
-        // Update payment status in Firestore (only if db is configured)
-        if (db) {
-          const leadsRef = doc(db, 'leads', paymentData.external_reference || paymentId);
-          const leadDoc = await withTimeout(getDoc(leadsRef), 8000, 'webhook get lead');
+        if (adminDb) {
+          const leadRef = adminDb
+            .collection('leads')
+            .doc(String(paymentData.external_reference || paymentId));
 
-          if (leadDoc.exists()) {
-            await withTimeout(
-              updateDoc(leadsRef, {
-                paymentStatus: 'approved',
-                paymentId: paymentId,
-                paymentApprovedAt: new Date().toISOString(),
-              }),
-              8000,
-              'webhook update lead'
-            );
+          try {
+            const leadDoc = await withTimeout(leadRef.get(), 8000, 'webhook get lead');
+
+            if (leadDoc.exists) {
+              await withTimeout(
+                leadRef.update({
+                  paymentStatus: 'approved',
+                  paymentId: paymentId,
+                  paymentApprovedAt: new Date().toISOString(),
+                }),
+                8000,
+                'webhook update lead'
+              );
+            }
+          } catch (firestoreErr: any) {
+            console.error('[api/payment/webhook] erro ao atualizar lead no Firestore', {
+              error: firestoreErr?.message || String(firestoreErr),
+              paymentId,
+            });
           }
+        } else {
+          console.warn('[api/payment/webhook] adminDb não configurado; lead não atualizado');
         }
 
-        console.log(`Payment ${paymentId} approved for ${paymentData.payer?.email}`);
+        console.log(`[api/payment/webhook] pagamento ${paymentId} aprovado para ${paymentData.payer?.email}`);
       }
     }
 
+    console.log('[api/payment/webhook] end', { durationMs: Date.now() - start });
     return NextResponse.json({ received: true });
   } catch (error: any) {
-    console.error('Webhook error:', { error, timestamp: new Date().toISOString() });
+    console.error('[api/payment/webhook] error', {
+      error: error?.message || String(error),
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - start,
+    });
     const status = error?.message?.includes('timeout') ? 504 : 500;
     return NextResponse.json(
       { error: error?.message?.includes('timeout') ? 'Tempo esgotado ao processar webhook.' : 'Erro ao processar webhook.' },
