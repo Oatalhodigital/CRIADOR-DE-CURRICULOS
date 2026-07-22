@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
+import CardPaymentBrick, { CardPaymentData } from './CardPaymentBrick';
 
 interface PaymentData {
   id: string;
@@ -33,6 +34,49 @@ const createPixPayment = async (amount: number, email: string, leadId?: string):
   return res.json();
 };
 
+interface CardPaymentResult {
+  id: string;
+  status: string;
+  status_detail?: string;
+}
+
+const createCardPayment = async (
+  formData: CardPaymentData,
+  amount: number,
+  email: string,
+  leadId?: string
+): Promise<CardPaymentResult> => {
+  const res = await fetchWithTimeout('/api/payment/card', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...formData, amount, email, leadId }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Erro ao processar pagamento com cartão.');
+  }
+
+  return res.json();
+};
+
+interface SearchPaymentResult {
+  approved: boolean;
+  paymentId?: string;
+}
+
+const searchPaymentByReference = async (leadId?: string): Promise<SearchPaymentResult> => {
+  if (!leadId) return { approved: false };
+  const res = await fetchWithTimeout(`/api/payment/search?external_reference=${encodeURIComponent(leadId)}`);
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Erro ao buscar pagamento.');
+  }
+
+  return res.json();
+};
+
 const checkPaymentStatus = async (paymentId: string): Promise<boolean> => {
   const res = await fetchWithTimeout(`/api/payment/status/${paymentId}`);
 
@@ -50,16 +94,25 @@ const MAX_POLL_ATTEMPTS = 60; // 5 minutos de polling
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPaymentSuccess: () => void;
+  onPaymentSuccess: (paymentId?: string) => void;
+  amount?: number;
 }
+
+const publicKey = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({
   isOpen,
   onClose,
   onPaymentSuccess,
+  amount = 0,
 }) => {
   const { resume } = useResume();
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+  const [cardPaymentId, setCardPaymentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,17 +120,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const pollCountRef = useRef(0);
   const isMountedRef = useRef(true);
 
+  const resetPaymentState = () => {
+    setPaymentData(null);
+    setCardPaymentId(null);
+    setError(null);
+    setPaymentStatus('pending');
+    pollCountRef.current = 0;
+  };
+
   const createPayment = useCallback(async () => {
     if (!resume.personalInfo.email) {
       setError('E-mail não encontrado. Preencha seus dados pessoais.');
       return;
     }
 
+    if (!amount || amount <= 0) {
+      setError('Valor do pagamento inválido. Selecione um plano.');
+      return;
+    }
+
+    if (paymentMethod !== 'pix') return;
+
     setIsLoading(true);
-    setError(null);
+    resetPaymentState();
 
     try {
-      const data = await createPixPayment(10, resume.personalInfo.email, resume.id);
+      const data = await createPixPayment(amount, resume.personalInfo.email, resume.id);
       if (isMountedRef.current) {
         setPaymentData(data);
       }
@@ -91,7 +159,46 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setIsLoading(false);
       }
     }
-  }, [resume.personalInfo.email, resume.id]);
+  }, [amount, resume.personalInfo.email, resume.id, paymentMethod]);
+
+  const handleCardSubmit = useCallback(
+    async (formData: CardPaymentData) => {
+      if (!resume.personalInfo.email) {
+        throw new Error('E-mail não encontrado. Preencha seus dados pessoais.');
+      }
+
+      if (!amount || amount <= 0) {
+        throw new Error('Valor do pagamento inválido. Selecione um plano.');
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const result = await createCardPayment(formData, amount, resume.personalInfo.email, resume.id);
+        if (isMountedRef.current) {
+          setCardPaymentId(result.id);
+          if (result.status === 'approved') {
+            setPaymentStatus('approved');
+            onPaymentSuccess(result.id);
+          } else {
+            setError(`Pagamento ${result.status}. Verifique o status ou aguarde a confirmação.`);
+          }
+        }
+      } catch (err) {
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : 'Erro ao processar cartão. Tente novamente.');
+        }
+        console.error('CheckoutModal: card submit error', err);
+        throw err;
+      } finally {
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [amount, resume.personalInfo.email, resume.id, onPaymentSuccess]
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -102,15 +209,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isOpen && !paymentData && resume.personalInfo.email) {
+    resetPaymentState();
+  }, [paymentMethod, amount]);
+
+  useEffect(() => {
+    if (isOpen && paymentMethod === 'pix' && !paymentData && resume.personalInfo.email) {
       createPayment();
     }
-  }, [isOpen, paymentData, resume.personalInfo.email, createPayment]);
+  }, [isOpen, paymentMethod, paymentData, resume.personalInfo.email, createPayment]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
 
-    if (paymentStatus === 'pending' && paymentData) {
+    if (paymentStatus === 'pending' && paymentData && paymentMethod === 'pix') {
       interval = setInterval(async () => {
         try {
           if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
@@ -128,7 +239,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           if (isApproved) {
             setPaymentStatus('approved');
-            onPaymentSuccess();
+            onPaymentSuccess(paymentData.id);
             clearInterval(interval);
           }
         } catch (err) {
@@ -141,22 +252,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [paymentStatus, paymentData, onPaymentSuccess]);
+  }, [paymentStatus, paymentData, paymentMethod, onPaymentSuccess]);
 
   const handleCheckStatus = async () => {
-    if (!paymentData) return;
+    if (paymentMethod === 'pix' && !paymentData) return;
 
     setIsChecking(true);
     try {
-      const isApproved = await checkPaymentStatus(paymentData.id);
-      if (isApproved) {
-        setPaymentStatus('approved');
-        onPaymentSuccess();
+      if (paymentMethod === 'pix' && paymentData) {
+        const isApproved = await checkPaymentStatus(paymentData.id);
+        if (isApproved) {
+          setPaymentStatus('approved');
+          onPaymentSuccess(paymentData.id);
+        } else {
+          setError('Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.');
+        }
       } else {
-        setError('Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.');
+        const result = await searchPaymentByReference(resume.id);
+        if (result.approved && result.paymentId) {
+          setPaymentStatus('approved');
+          onPaymentSuccess(result.paymentId);
+        } else {
+          setError('Pagamento ainda não confirmado. Se já pagou, aguarde alguns instantes e tente novamente.');
+        }
       }
     } catch (err) {
-      setError('Erro ao verificar status do pagamento.');
+      setError(err instanceof Error ? err.message : 'Erro ao verificar status do pagamento.');
       console.error('CheckoutModal: manual status check error', err);
     } finally {
       setIsChecking(false);
@@ -182,11 +303,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <p className="text-gray-600">
             {paymentStatus === 'approved'
               ? 'Seu currículo está pronto para download'
-              : 'Escaneie o QR Code para pagar R$ 10,00 via PIX'}
+              : `Total: ${formatCurrency(amount)}`}
           </p>
         </div>
 
-        {isLoading && (
+        {paymentStatus !== 'approved' && (
+          <div className="flex rounded-xl bg-gray-100 p-1 mb-6">
+            <button
+              onClick={() => setPaymentMethod('pix')}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                paymentMethod === 'pix'
+                  ? 'bg-white text-emerald-700 shadow'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              PIX
+            </button>
+            <button
+              onClick={() => setPaymentMethod('card')}
+              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                paymentMethod === 'card'
+                  ? 'bg-white text-emerald-700 shadow'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Cartão
+            </button>
+          </div>
+        )}
+
+        {isLoading && paymentMethod === 'pix' && (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4" />
             <p className="text-gray-600">Gerando QR Code...</p>
@@ -196,11 +342,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+            <div className="flex-1">
+              <p className="text-sm text-red-700">{error}</p>
+              {!isLoading && paymentMethod === 'pix' && (
+                <button
+                  onClick={createPayment}
+                  className="mt-3 text-sm font-semibold text-red-700 underline hover:text-red-800"
+                >
+                  Tentar novamente
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {paymentData && paymentStatus === 'pending' && (
+        {!isLoading && paymentStatus !== 'approved' && paymentMethod === 'pix' && paymentData && (
           <div className="space-y-4">
             {paymentData.qr_code_base64 ? (
               <div className="bg-white border-2 border-gray-200 rounded-xl p-4 flex items-center justify-center">
@@ -238,13 +394,53 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </div>
         )}
 
+        {!isLoading && paymentStatus !== 'approved' && paymentMethod === 'card' && (
+          <div className="space-y-4">
+            {amount <= 0 ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+                Selecione um plano para habilitar o pagamento com cartão.
+              </div>
+            ) : !publicKey ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+                <p className="font-semibold mb-1">Configuração pendente</p>
+                <p>
+                  A chave pública do Mercado Pago (NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY) não está configurada.
+                  Adicione-a nas variáveis de ambiente para habilitar o formulário de cartão.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-gray-600">
+                  Preencha os dados do cartão abaixo. A transação é processada com segurança pelo Mercado Pago.
+                </div>
+                <CardPaymentBrick
+                  publicKey={publicKey}
+                  amount={amount}
+                  email={resume.personalInfo.email}
+                  onSubmit={handleCardSubmit}
+                  onError={(err) => console.error('Card brick error', err)}
+                />
+                {cardPaymentId && (
+                  <button
+                    onClick={handleCheckStatus}
+                    disabled={isChecking}
+                    className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    {isChecking ? 'Verificando...' : 'Já paguei — Verificar'}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {paymentStatus === 'approved' && (
           <div className="text-center py-8">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
             <button
-              onClick={onPaymentSuccess}
+              onClick={() => onPaymentSuccess()}
               className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
             >
               Baixar Currículo
@@ -254,6 +450,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       </div>
     </div>
   );
-};
+}
 
 export default CheckoutModal;

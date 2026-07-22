@@ -2,12 +2,15 @@
 
 import { ArrowRight, Sparkles, FileText, Zap, X, Check, AlertTriangle, ChevronRight, CreditCard } from 'lucide-react';
 import { useState } from 'react';
+import { useLanguage } from '@/context/LanguageContext';
+import LanguageSelector from './LanguageSelector';
 
 interface LandingPageProps {
   onStart: () => void;
 }
 
 const LandingPage = ({ onStart }: LandingPageProps) => {
+  const { t } = useLanguage();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const scrollToEditor = () => {
@@ -21,7 +24,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
     },
     {
       question: "Tem alguma assinatura mensal?",
-      answer: "Não! Nosso modelo é pagamento único por download. Você paga apenas R$ 10,00 quando estiver satisfeito com seu currículo e quiser baixar em PDF. Sem assinaturas, sem cobranças escondidas."
+      answer: "Não! Nosso modelo é pagamento único por download. Você paga apenas na hora de baixar o PDF, quando estiver satisfeito com seu currículo. Sem assinaturas, sem cobranças escondidas."
     },
     {
       question: "Posso editar depois?",
@@ -38,17 +41,18 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       {/* Header */}
       <header className="grid grid-cols-3 items-center px-6 md:px-12 py-6 border-b border-gray-200 bg-white sticky top-0 z-50">
         <div className="text-emerald-600 font-semibold text-sm md:text-base">
-          LS - Soluções Digitais
+          {t('landing.brand')}
         </div>
         <h1 className="text-center text-sm md:text-lg font-bold tracking-tight text-gray-900 uppercase">
-          CRIADOR-DE-CURRICULOS- HELP IA
+          {t('landing.title')}
         </h1>
-        <div className="flex justify-end">
+        <div className="flex justify-end items-center gap-3">
+          <LanguageSelector />
           <button
             onClick={scrollToEditor}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200 text-sm md:text-base"
           >
-            Criar Currículo
+            {t('landing.createResume')}
           </button>
         </div>
       </header>
@@ -57,26 +61,26 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       <section className="px-6 md:px-12 py-16 md:py-24 max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
           <span className="inline-block bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-semibold mb-6 border border-emerald-200">
-            ✨ Otimizado para sistemas ATS
+            {t('landing.heroBadge')}
           </span>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 tracking-tight text-gray-900">
-            Seu currículo aprovado pelos robôs de RH (ATS) em menos de 10 minutos.
+            {t('landing.heroTitle')}
           </h1>
           <p className="text-lg md:text-xl text-gray-600 leading-relaxed mb-8 max-w-3xl mx-auto">
-            Design minimalista padrão de mercado, otimizado para sistemas de recrutamento e com auxílio de IA para destacar suas conquistas. Sem cadastros chatos, direto ao ponto.
+            {t('landing.heroSubtitle')}
           </p>
-          
+
           <div className="flex flex-col items-center gap-4">
             <button
               onClick={scrollToEditor}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl text-lg transition-all duration-200 shadow-lg hover:shadow-xl w-full md:w-auto"
             >
-              Criar Meu Currículo Agora
+              {t('landing.heroCta')}
               <ArrowRight className="w-5 h-5 inline ml-2" />
             </button>
             <span className="text-sm text-gray-500 flex items-center gap-2">
               <Zap className="w-4 h-4 text-emerald-600" />
-              Comece de graça. Pague apenas R$ 10,00 para baixar.
+              {t('landing.heroSub')}
             </span>
           </div>
         </div>
@@ -86,8 +90,8 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       <section className="px-6 md:px-12 py-16 md:py-24 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">O Problema vs. A Solução</h2>
-            <p className="text-gray-600 text-lg">Por que currículos "bonitos" não funcionam</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">{t('landing.problemTitle')}</h2>
+            <p className="text-gray-600 text-lg">{t('landing.problemSubtitle')}</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -97,7 +101,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
                   <X className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-red-600">O Que NÃO Funciona</h3>
+                <h3 className="text-2xl font-bold text-red-600">{t('landing.problem')}</h3>
               </div>
               <ul className="space-y-4">
                 <li className="flex items-start gap-3">
@@ -125,7 +129,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
                   <Check className="w-6 h-6 text-emerald-600" />
                 </div>
-                <h3 className="text-2xl font-bold text-emerald-600">Nossa Solução</h3>
+                <h3 className="text-2xl font-bold text-emerald-600">{t('landing.solution')}</h3>
               </div>
               <ul className="space-y-4">
                 <li className="flex items-start gap-3">
@@ -154,8 +158,8 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       <section className="px-6 md:px-12 py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Como Funciona</h2>
-            <p className="text-gray-600 text-lg">3 passos simples para seu currículo profissional</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">{t('landing.howItWorks')}</h2>
+            <p className="text-gray-600 text-lg">{t('landing.howItWorksSubtitle')}</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -165,9 +169,9 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 <FileText className="w-7 h-7 text-emerald-600" />
               </div>
               <div className="text-sm font-bold text-emerald-600 mb-2">PASSO 1</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-900">Preencha seus dados</h3>
+              <h3 className="text-xl font-bold mb-3 text-gray-900">{t('landing.step1Title')}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Interface guiada passo a passo. Adicione suas informações pessoais, experiência, educação e habilidades de forma organizada.
+                {t('landing.step1Desc')}
               </p>
             </div>
 
@@ -177,9 +181,9 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 <Sparkles className="w-7 h-7 text-emerald-600" />
               </div>
               <div className="text-sm font-bold text-emerald-600 mb-2">PASSO 2</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-900">Otimize com IA</h3>
+              <h3 className="text-xl font-bold mb-3 text-gray-900">{t('landing.step2Title')}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Melhore seus textos de experiência com 1 clique. Nossa IA transforma descrições simples em conquistas impactantes.
+                {t('landing.step2Desc')}
               </p>
             </div>
 
@@ -189,9 +193,9 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
                 <CreditCard className="w-7 h-7 text-emerald-600" />
               </div>
               <div className="text-sm font-bold text-emerald-600 mb-2">PASSO 3</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-900">Libere via PIX</h3>
+              <h3 className="text-xl font-bold mb-3 text-gray-900">{t('landing.step3Title')}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Pagamento único de R$ 10,00. Sem assinaturas ou cobranças escondidas. Baixe seu PDF profissional imediatamente.
+                {t('landing.step3Desc')}
               </p>
             </div>
           </div>
@@ -202,36 +206,36 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       <section className="px-6 md:px-12 py-16 md:py-24 bg-gray-50">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Preço Transparente</h2>
-            <p className="text-gray-600 text-lg">Sem surpresas, sem assinaturas</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">{t('landing.pricingTitle')}</h2>
+            <p className="text-gray-600 text-lg">{t('landing.pricingSubtitle')}</p>
           </div>
 
           <div className="bg-white border border-gray-200 rounded-3xl p-8 md:p-12 shadow-lg">
             <div className="text-center mb-8">
-              <div className="text-5xl md:text-6xl font-bold text-emerald-600 mb-2">R$ 10,00</div>
-              <div className="text-gray-600 text-lg">Pagamento Único</div>
+              <div className="text-2xl md:text-3xl font-bold text-emerald-600 mb-2">{t('landing.pricingTitle')}</div>
+              <div className="text-gray-600 text-lg">{t('landing.pricingSubtitle')}</div>
             </div>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <span className="text-gray-700">Acesso vitalício ao editor</span>
+                <span className="text-gray-700">{t('landing.pricingFeature1')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <span className="text-gray-700">Layout 100% ATS-friendly</span>
+                <span className="text-gray-700">{t('landing.pricingFeature2')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <span className="text-gray-700">Revisão com IA inclusa</span>
+                <span className="text-gray-700">{t('landing.pricingFeature3')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <span className="text-gray-700">Download em PDF de alta qualidade</span>
+                <span className="text-gray-700">{t('landing.pricingFeature4')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <span className="text-gray-700">Sem assinaturas mensais</span>
+                <span className="text-gray-700">{t('landing.pricingFeature5')}</span>
               </div>
             </div>
 
@@ -239,7 +243,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
               onClick={scrollToEditor}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl text-lg transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
             >
-              Começar Agora
+              {t('landing.pricingCta')}
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
@@ -250,8 +254,8 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       <section className="px-6 md:px-12 py-16 md:py-24 bg-white">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Perguntas Frequentes</h2>
-            <p className="text-gray-600 text-lg">Tire suas dúvidas antes de começar</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">{t('landing.faqTitle')}</h2>
+            <p className="text-gray-600 text-lg">{t('landing.faqSubtitle')}</p>
           </div>
 
           <div className="space-y-4">
@@ -286,16 +290,16 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
       <section className="px-6 md:px-12 py-16 md:py-24 bg-emerald-50 border-t border-gray-200">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
-            Pronto para criar seu currículo profissional?
+            {t('landing.finalTitle')}
           </h2>
           <p className="text-gray-600 text-lg mb-8">
-            Comece gratuitamente agora. Pague apenas quando estiver satisfeito.
+            {t('landing.finalSubtitle')}
           </p>
           <button
             onClick={scrollToEditor}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-8 py-4 rounded-xl text-lg transition-all duration-200 shadow-lg hover:shadow-xl inline-flex items-center gap-2"
           >
-            Criar Meu Currículo Agora
+            {t('landing.finalCta')}
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

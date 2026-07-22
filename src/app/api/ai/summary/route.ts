@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import OpenAI from 'openai';
+
+const summarySchema = z.object({
+  experience: z.array(z.any()).min(1, 'Experiência é obrigatória'),
+  skills: z.array(z.any()).min(1, 'Habilidades são obrigatórias'),
+  profession: z.string().optional(),
+});
 
 export async function POST(request: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -15,17 +22,20 @@ export async function POST(request: NextRequest) {
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const { experience, skills } = await request.json();
+    const rawBody = await request.json();
+    const parseResult = summarySchema.safeParse(rawBody);
 
-    if (!experience?.length || !skills?.length) {
+    if (!parseResult.success) {
       clearTimeout(timeoutId);
       return NextResponse.json(
-        { error: 'Experiência e habilidades são obrigatórias.' },
+        { error: parseResult.error.errors.map((e) => e.message).join('. ') },
         { status: 400 }
       );
     }
 
-    const openai = new OpenAI({ apiKey });
+    const { experience, skills, profession } = parseResult.data;
+
+    const openai = new OpenAI({ apiKey, maxRetries: 2, timeout: 15000 });
 
     const expSummary = experience
       .map(
@@ -36,13 +46,17 @@ export async function POST(request: NextRequest) {
 
     const skillsList = skills.map((s: { name: string }) => s.name).join(', ');
 
+    const professionContext = profession
+      ? `Foque o resumo para o cargo/profissão: ${profession}. `
+      : '';
+
     const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
             content:
-              'Gere um resumo profissional conciso (máximo 150 palavras) em português brasileiro, otimizado para ATS. Retorne apenas o resumo, sem explicações.',
+              `${professionContext}Gere um resumo profissional conciso (máximo 150 palavras) em português brasileiro, otimizado para ATS. Retorne apenas o resumo, sem explicações.`,
           },
           {
             role: 'user',

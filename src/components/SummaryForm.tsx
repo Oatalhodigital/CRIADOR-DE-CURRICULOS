@@ -30,6 +30,7 @@ const SummaryForm = () => {
         body: JSON.stringify({
           experience: resume.experience,
           skills: resume.skills,
+          profession: resume.experience[0]?.position,
         }),
       });
 
@@ -88,6 +89,7 @@ const SummaryForm = () => {
             <AIEnhanceButton
               text={resume.summary}
               context="Objetivo profissional para currículo"
+              profession={resume.experience[0]?.position}
               onEnhanced={(enhanced: string) => updateSummary(enhanced)}
             />
           </div>

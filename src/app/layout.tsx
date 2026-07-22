@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { ResumeProvider } from '@/context/ResumeContext'
+import { LanguageProvider } from '@/context/LanguageContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -24,9 +25,11 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        <ResumeProvider>
-          {children}
-        </ResumeProvider>
+        <LanguageProvider>
+          <ResumeProvider>
+            {children}
+          </ResumeProvider>
+        </LanguageProvider>
         <Analytics />
       </body>
     </html>

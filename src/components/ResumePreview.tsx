@@ -1,4 +1,8 @@
+'use client';
+
 import { Resume, Experience, Education, Skill } from '@/types/resume';
+import { useEffect, useRef, useState } from 'react';
+import { Lock, Shield } from 'lucide-react';
 
 interface ResumePreviewProps {
   resume: Resume;
@@ -6,15 +10,57 @@ interface ResumePreviewProps {
   draftEducation?: Partial<Education> | null;
   draftSkill?: Partial<Skill> | null;
   isPaid?: boolean;
+  price?: number;
+  onContinueToPayment?: () => void;
 }
 
-const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill, isPaid = false }: ResumePreviewProps) => {
+const ResumePreview = ({
+  resume,
+  draftExperience,
+  draftEducation,
+  draftSkill,
+  isPaid = false,
+  price = 10,
+  onContinueToPayment,
+}: ResumePreviewProps) => {
   const { personalInfo, experience, education, skills, languages, summary } = resume;
 
   // Combine existing items with draft items for real-time preview
   const allExperience = draftExperience ? [...experience, draftExperience as Experience] : experience;
   const allEducation = draftEducation ? [...education, draftEducation as Education] : education;
   const allSkills = draftSkill ? [...skills, draftSkill as Skill] : skills;
+
+  const isPaidRef = useRef(isPaid);
+  useEffect(() => {
+    isPaidRef.current = isPaid;
+  }, [isPaid]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isPaidRef.current) return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P' || e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        window.alert('Impressão e download estão disponíveis após a compra.');
+      }
+    };
+
+    const handleBeforePrint = () => {
+      if (!isPaidRef.current) {
+        window.alert('Finalize a compra para baixar ou imprimir o currículo completo.');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('beforeprint', handleBeforePrint);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('beforeprint', handleBeforePrint);
+    };
+  }, []);
+
+  const formatPrice = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -25,18 +71,20 @@ const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill, is
 
   return (
     <div className="relative">
-      {/* Watermark overlay for unpaid users */}
       {!isPaid && (
-        <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm"></div>
-          <div className="relative text-center transform -rotate-45 opacity-20">
-            <p className="text-6xl font-bold text-gray-400 tracking-wider">NÃO PAGO</p>
-            <p className="text-2xl text-gray-400 mt-2">Pré-visualização</p>
-          </div>
+        <div className="hidden print:flex flex-col items-center justify-center p-12 text-center bg-white text-gray-700 min-h-[297mm]">
+          <Lock className="w-12 h-12 text-emerald-600 mb-4" />
+          <p className="font-semibold text-lg mb-2">Currículo protegido</p>
+          <p>Finalize a compra para baixar ou imprimir seu currículo completo.</p>
         </div>
       )}
 
-      <div className={`w-[210mm] min-h-[297mm] bg-white p-10 shadow-2xl text-black mx-auto print:shadow-none print:p-8 print:w-full print:min-h-full font-sans rounded-sm ${!isPaid ? 'blur-[2px]' : ''}`} style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)' }}>
+      <div
+        className={`w-[210mm] min-h-[297mm] bg-white p-10 shadow-2xl text-black mx-auto print:shadow-none print:p-8 print:w-full print:min-h-full font-sans rounded-sm relative ${!isPaid ? 'select-none print:hidden' : ''}`}
+        style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)' }}
+        onContextMenu={!isPaid ? (e) => e.preventDefault() : undefined}
+        onCopy={!isPaid ? (e) => e.preventDefault() : undefined}
+      >
       {/* Header - ATS Friendly */}
       <div className="border-b-2 border-black pb-4 mb-6">
         <h1 className="text-3xl font-bold text-black tracking-normal mb-1 uppercase">
@@ -54,11 +102,11 @@ const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill, is
           </p>
           <p className="flex flex-wrap gap-x-3 gap-y-1">
             {personalInfo.address && <span>{personalInfo.address}</span>}
-            {personalInfo.city && personalInfo.address && <span className="text-gray-400">|</span>}
+            {personalInfo.number && <span>Nº {personalInfo.number}</span>}
+            {personalInfo.complement && <span>{personalInfo.complement}</span>}
+            {personalInfo.neighborhood && <span>{personalInfo.neighborhood}</span>}
             {personalInfo.city && <span>{personalInfo.city}</span>}
-            {personalInfo.state && personalInfo.city && <span className="text-gray-400">-</span>}
             {personalInfo.state && <span>{personalInfo.state}</span>}
-            {personalInfo.zipCode && (personalInfo.city || personalInfo.state) && <span className="text-gray-400">|</span>}
             {personalInfo.zipCode && <span>CEP: {personalInfo.zipCode}</span>}
           </p>
           <p className="flex flex-wrap gap-x-3 gap-y-1">
@@ -170,6 +218,38 @@ const ResumePreview = ({ resume, draftExperience, draftEducation, draftSkill, is
         </div>
       )}
       </div>
+
+      {!isPaid && (
+        <>
+          <div
+            className="absolute inset-x-0 top-[45%] bottom-0 z-10 bg-gradient-to-b from-white/10 via-white/80 to-white/95 backdrop-blur-[3px] pointer-events-auto select-none"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-x-0 top-[55%] z-20 flex flex-col items-center justify-start px-6 pointer-events-auto select-text">
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xl max-w-sm text-center">
+              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-6 h-6 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Preview parcial</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Veja a primeira parte do seu currículo. Finalize a compra para visualizar e baixar a versão completa.
+              </p>
+              <div className="text-2xl font-bold text-emerald-600 mb-2">
+                {price && price > 0 ? formatPrice(price) : 'Escolha seu plano'}
+              </div>
+              <p className="text-xs text-gray-500 mb-4">Pagamento único — sem assinatura</p>
+              {onContinueToPayment && (
+                <button
+                  onClick={onContinueToPayment}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors"
+                >
+                  Ir para pagamento
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

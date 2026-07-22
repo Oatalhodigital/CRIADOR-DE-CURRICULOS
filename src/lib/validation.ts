@@ -5,6 +5,12 @@ export const personalInfoSchema = z.object({
   email: z.string().email('E-mail inválido'),
   phone: z.string().min(10, 'Telefone inválido'),
   address: z.string().min(2, 'Endereço deve ter pelo menos 2 caracteres'),
+  number: z.string().optional(),
+  complement: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().min(2, 'Cidade deve ter pelo menos 2 caracteres'),
+  state: z.string().min(2, 'Estado deve ter pelo menos 2 caracteres'),
+  zipCode: z.string().regex(/^\d{5}-\d{3}$/, 'CEP deve estar no formato 00000-000'),
   linkedin: z.string().optional(),
   website: z.string().optional(),
 })

@@ -128,9 +128,12 @@ const ResumePDF: React.FC<ResumePDFProps> = ({ resume, font = 'Helvetica', accen
           <Text style={styles.contactInfo}>
             {[
               personalInfo.address,
+              personalInfo.number ? `Nº ${personalInfo.number}` : null,
+              personalInfo.complement,
+              personalInfo.neighborhood,
               personalInfo.city,
               personalInfo.state,
-              personalInfo.zipCode ? `CEP: ${personalInfo.zipCode}` : null
+              personalInfo.zipCode ? `CEP: ${personalInfo.zipCode}` : null,
             ].filter(Boolean).join(', ')}
           </Text>
           <Text style={styles.contactInfo}>

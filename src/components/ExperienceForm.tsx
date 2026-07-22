@@ -146,6 +146,7 @@ const ExperienceForm = () => {
               <AIEnhanceButton
                 text={newExperience.description || ''}
                 context={`Cargo de ${newExperience.position} na empresa ${newExperience.company}`}
+                profession={newExperience.position}
                 onEnhanced={(enhanced: string) => setNewExperience({ ...newExperience, description: enhanced })}
               />
             </div>

@@ -16,7 +16,9 @@ const PersonalInfoForm = () => {
   const [citySuggestions, setCitySuggestions] = useState<CitySuggestion[]>([]);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [isLoadingCity, setIsLoadingCity] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
+  const cepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const brazilianStates = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -28,13 +30,21 @@ const PersonalInfoForm = () => {
   };
 
   const handleCepChange = (value: string) => {
-    // Apply CEP mask: 00000-000
-    const masked = value.replace(/\D/g, '').replace(/^(\d{5})(\d)/, '$1-$2').slice(0, 9);
+    // Apply CEP mask: 00000-000 (8 digits total, hyphen after 5th)
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    const masked = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
     handleChange('zipCode', masked);
+    setCepError(null);
+
+    if (cepTimeoutRef.current) {
+      clearTimeout(cepTimeoutRef.current);
+    }
 
     // Auto-fill address via ViaCEP if CEP is complete
-    if (masked.length === 9) {
-      fetchAddressByCep(masked.replace('-', ''));
+    if (digits.length === 8) {
+      cepTimeoutRef.current = setTimeout(() => {
+        fetchAddressByCep(digits);
+      }, 400);
     }
   };
 
@@ -47,15 +57,24 @@ const PersonalInfoForm = () => {
   const fetchAddressByCep = async (cep: string) => {
     try {
       const response = await fetchWithTimeout(`https://viacep.com.br/ws/${cep}/json/`);
-      if (!response.ok) return;
+      if (!response.ok) {
+        setCepError('Não foi possível buscar o endereço. Tente novamente.');
+        return;
+      }
       const data = await response.json();
 
-      if (!data?.erro) {
-        handleChange('address', data.logradouro || '');
-        handleChange('city', data.localidade || '');
-        handleChange('state', data.uf || '');
+      if (data?.erro) {
+        setCepError('CEP não encontrado. Verifique o número informado.');
+        return;
       }
+
+      handleChange('address', data.logradouro || '');
+      handleChange('neighborhood', data.bairro || '');
+      handleChange('city', data.localidade || '');
+      handleChange('state', data.uf || '');
+      setCepError(null);
     } catch (error) {
+      setCepError('Erro ao consultar CEP. Preencha manualmente.');
       console.error('PersonalInfoForm: Error fetching address:', error);
     }
   };
@@ -175,6 +194,7 @@ const PersonalInfoForm = () => {
         <div className="relative">
           <input
             type="text"
+            inputMode="numeric"
             value={personalInfo.zipCode || ''}
             onChange={(e) => handleCepChange(e.target.value)}
             placeholder="00000-000"
@@ -182,16 +202,52 @@ const PersonalInfoForm = () => {
             className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
           />
         </div>
+        {cepError && <p className="text-xs text-red-600 mt-1">{cepError}</p>}
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-gray-900">Endereço</label>
-        <div className="relative">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="space-y-2 md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-900">Endereço</label>
           <input
             type="text"
             value={personalInfo.address || ''}
             onChange={(e) => handleChange('address', e.target.value)}
-            placeholder="Rua, número, complemento"
+            placeholder="Rua / Avenida"
+            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-900">Número</label>
+          <input
+            type="text"
+            value={personalInfo.number || ''}
+            onChange={(e) => handleChange('number', e.target.value)}
+            placeholder="Nº"
+            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-900">Complemento</label>
+          <input
+            type="text"
+            value={personalInfo.complement || ''}
+            onChange={(e) => handleChange('complement', e.target.value)}
+            placeholder="Apto, bloco, sala..."
+            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-900">Bairro</label>
+          <input
+            type="text"
+            value={personalInfo.neighborhood || ''}
+            onChange={(e) => handleChange('neighborhood', e.target.value)}
+            placeholder="Bairro"
             className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
           />
         </div>

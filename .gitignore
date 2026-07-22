@@ -37,3 +37,6 @@ next-env.d.ts
 
 # Local AI/agent prompt drafts
 prompt-windsurf-melhorias.md
+
+.vercel
+.env*.local

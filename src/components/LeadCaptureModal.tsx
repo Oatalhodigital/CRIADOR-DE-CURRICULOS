@@ -155,13 +155,22 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       const message = err?.message || ''
 
       let userMessage = 'Erro ao fazer login com Google. Tente novamente.'
-      if (
+      if (code === 'auth/unauthorized-domain') {
+        userMessage = 'Este domínio não está autorizado no Firebase Auth. Verifique os domínios autorizados no Console do Firebase.'
+      } else if (
         code === 'auth/configuration-not-found' ||
         code === 'auth/operation-not-allowed' ||
         code === 'auth/popup-closed-by-user'
       ) {
         userMessage =
           'Login com Google não está habilitado ou foi cancelado. Verifique o Console do Firebase.'
+      } else if (
+        code === 'auth/web-storage-unsupported' ||
+        code === 'auth/storage-unsupported'
+      ) {
+        userMessage = 'Cookies ou armazenamento local estão desabilitados. Habilite-os para fazer login com o Google.'
+      } else if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+        userMessage = 'Popup de login bloqueado ou fechado. Permitua popups para este site.'
       } else if (message.includes('timeout')) {
         userMessage = 'Tempo esgotado ao conectar com o Google. Tente novamente.'
       }

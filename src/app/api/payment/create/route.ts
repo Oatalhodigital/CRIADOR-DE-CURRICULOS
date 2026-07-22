@@ -52,25 +52,40 @@ export async function POST(request: NextRequest) {
       qr_code_base64: transactionData?.qr_code_base64 || '',
     });
   } catch (error: any) {
-    console.error('Payment create error:', { error, timestamp: new Date().toISOString() });
+    const errorPayload = {
+      message: error?.message || '',
+      code: error?.code || '',
+      status: error?.status || error?.statusCode || error?.cause?.status || 0,
+      cause: error?.cause ? JSON.stringify(error.cause) : undefined,
+      response: error?.response ? JSON.stringify(error.response).slice(0, 500) : undefined,
+      timestamp: new Date().toISOString(),
+    };
+    console.error('Payment create error:', errorPayload);
 
     if (error?.message?.includes('timeout')) {
       return NextResponse.json({ error: 'Tempo esgotado ao criar pagamento.' }, { status: 504 });
     }
 
-    const status = error?.status || error?.statusCode || error?.cause?.status;
-    if (status === 401 || status === 403) {
-      return NextResponse.json({ error: 'Token do Mercado Pago inválido ou sem permissão.' }, { status });
+    // Mercado Pago SDK v2 throws errors with a string `code` property
+    const mpCode = error?.code || error?.cause?.code || '';
+    const mpMessage = (error?.message || '').toLowerCase();
+    const status = error?.status || error?.statusCode || error?.cause?.status || 0;
+
+    if (mpCode === 'unauthorized' || mpMessage.includes('authorization') || status === 401 || status === 403) {
+      return NextResponse.json({ error: 'Token do Mercado Pago inválido ou sem permissão. Verifique as configurações.' }, { status: 401 });
+    }
+    if (mpCode === 'bad_request' || status === 400) {
+      return NextResponse.json({ error: 'Dados do pagamento inválidos. Verifique e-mail e valor.' }, { status: 400 });
     }
     if (status === 429) {
-      return NextResponse.json({ error: 'Limite de requisições do Mercado Pago atingido. Tente novamente mais tarde.' }, { status });
+      return NextResponse.json({ error: 'Limite de requisições do Mercado Pago atingido. Tente novamente mais tarde.' }, { status: 429 });
     }
     if (status >= 500) {
       return NextResponse.json({ error: 'Erro no serviço do Mercado Pago.' }, { status });
     }
 
     return NextResponse.json(
-      { error: 'Falha ao criar pagamento PIX.' },
+      { error: 'Falha ao criar pagamento PIX. Tente novamente em alguns instantes.' },
       { status: 500 }
     );
   }

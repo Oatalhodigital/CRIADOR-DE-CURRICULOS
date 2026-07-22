@@ -6,11 +6,14 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Resume, PersonalInfo, Experience, Education, Skill, Language } from '@/types/resume';
 import { auth, db } from '@/lib/firebase';
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 interface ResumeContextType {
   resume: Resume;
   activeTemplate: 'classic' | 'modern' | 'minimalist';
   firebaseUser: User | null;
   firebaseReady: boolean;
+  saveStatus: SaveStatus;
   draftExperience: Partial<Experience> | null;
   draftEducation: Partial<Education> | null;
   draftSkill: Partial<Skill> | null;
@@ -43,6 +46,9 @@ const initialPersonalInfo: PersonalInfo = {
   email: '',
   phone: '',
   address: '',
+  number: '',
+  complement: '',
+  neighborhood: '',
   city: '',
   state: '',
   zipCode: '',
@@ -66,6 +72,7 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [draftId, setDraftIdState] = useState<string | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [firebaseReady, setFirebaseReady] = useState(!auth);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [draftExperience, setDraftExperience] = useState<Partial<Experience> | null>(null);
   const [draftEducation, setDraftEducation] = useState<Partial<Education> | null>(null);
   const [draftSkill, setDraftSkill] = useState<Partial<Skill> | null>(null);
@@ -155,36 +162,60 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
 
     saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        if (resume.personalInfo.email || resume.personalInfo.fullName) {
-          localStorage.setItem('resumeDraft', JSON.stringify(resume));
+      const canSaveLocally = Boolean(resume.personalInfo.email || resume.personalInfo.fullName);
+      if (!canSaveLocally) return;
 
-          if (auth && db && firebaseUser && firebaseReady) {
-            const id = resume.id || draftId || firebaseUser.uid;
-            await setDoc(
-              doc(db, 'resumes', id),
-              {
-                ...resume,
-                id,
-                userId: firebaseUser.uid,
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-            if (!resume.id && !draftId) {
-              setDraftIdState(id);
-              setResume((prev) => ({ ...prev, id }));
+      try {
+        setSaveStatus('saving');
+        localStorage.setItem('resumeDraft', JSON.stringify(resume));
+
+        if (auth && db && firebaseUser && firebaseReady) {
+          const firestore = db;
+          const id = resume.id || draftId || firebaseUser.uid;
+
+          const saveWithRetry = async (attempt = 1, maxAttempts = 3): Promise<void> => {
+            try {
+              await setDoc(
+                doc(firestore, 'resumes', id),
+                {
+                  ...resume,
+                  id,
+                  userId: firebaseUser.uid,
+                  updatedAt: serverTimestamp(),
+                },
+                { merge: true }
+              );
+            } catch (innerErr: any) {
+              if (attempt < maxAttempts) {
+                const delay = Math.min(1000 * 2 ** attempt, 8000);
+                console.warn(`Auto-save attempt ${attempt} failed, retrying in ${delay}ms...`, innerErr?.message || innerErr);
+                await new Promise((resolve) => setTimeout(resolve, delay));
+                return saveWithRetry(attempt + 1, maxAttempts);
+              }
+              throw innerErr;
             }
+          };
+
+          await saveWithRetry();
+
+          if (!resume.id && !draftId) {
+            setDraftIdState(id);
+            setResume((prev) => ({ ...prev, id }));
           }
         }
+
+        setSaveStatus('saved');
       } catch (error: any) {
+        setSaveStatus('error');
         console.error('Auto-save failed:', {
+          name: error?.name,
           code: error?.code,
           message: error?.message,
+          stack: error?.stack,
           timestamp: new Date().toISOString(),
         });
       }
-    }, 1500);
+    }, 1200);
 
     return () => {
       if (saveTimeoutRef.current) {
@@ -305,6 +336,7 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         activeTemplate,
         firebaseUser,
         firebaseReady,
+        saveStatus,
         draftExperience,
         draftEducation,
         draftSkill,

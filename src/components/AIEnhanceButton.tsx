@@ -6,6 +6,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 interface AIEnhanceButtonProps {
   text: string;
   context: string;
+  profession?: string;
   onEnhanced: (enhancedText: string) => void;
   className?: string;
 }
@@ -13,6 +14,7 @@ interface AIEnhanceButtonProps {
 const AIEnhanceButton = ({
   text,
   context,
+  profession,
   onEnhanced,
   className = '',
 }: AIEnhanceButtonProps) => {
@@ -34,7 +36,7 @@ const AIEnhanceButton = ({
       const res = await fetchWithTimeout('/api/ai/enhance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, context }),
+        body: JSON.stringify({ text, context, profession }),
       });
 
       if (!res.ok) {
