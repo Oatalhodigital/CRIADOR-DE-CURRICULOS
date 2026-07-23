@@ -153,12 +153,26 @@ Retorne APENAS o texto melhorado, sem explicações ou comentários adicionais.`
 
     return NextResponse.json({ enhanced });
   } catch (error: any) {
+    let safeHeaders: Record<string, string> | undefined = undefined;
+    if (error?.headers) {
+      try {
+        if (typeof error.headers.entries === 'function') {
+          safeHeaders = Object.fromEntries(error.headers.entries());
+        } else if (typeof error.headers === 'object') {
+          safeHeaders = Object.fromEntries(
+            Object.entries(error.headers).map(([k, v]) => [k, String(v)])
+          );
+        }
+      } catch {
+        safeHeaders = undefined;
+      }
+    }
     const errorPayload = {
       message: error?.message || '',
       code: error?.code || '',
       status: error?.status || 0,
       type: error?.type || '',
-      headers: error?.headers ? Object.fromEntries(error.headers.entries()) : undefined,
+      headers: safeHeaders,
       timestamp: new Date().toISOString(),
     };
     console.error('[api/ai/enhance] error:', errorPayload);

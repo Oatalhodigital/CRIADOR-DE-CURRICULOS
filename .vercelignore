@@ -1,0 +1,10 @@
+prompt-*.md
+.env*
+.env.local
+.env.*
+tsconfig.tsbuildinfo
+node_modules
+.next
+.git
+.github
+*.log
