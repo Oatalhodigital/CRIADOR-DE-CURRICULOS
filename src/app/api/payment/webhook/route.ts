@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { adminDb } from '@/lib/firebase-admin';
+import { updateOrderStatusPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'webhook'): Promise<T> =>
   Promise.race([
@@ -68,6 +69,19 @@ export async function POST(request: NextRequest) {
           }
         } else {
           console.warn('[api/payment/webhook] adminDb não configurado; lead não atualizado');
+        }
+
+        // Analytics complementar em Postgres (não bloqueia o fluxo principal)
+        try {
+          const status = paymentData.status === 'approved' ? 'approved' : (paymentData.status || 'unknown');
+          updateOrderStatusPostgres(String(paymentId), status);
+          insertFunnelEventPostgres({
+            lead_firestore_id: String(paymentData.external_reference || ''),
+            event_name: 'payment_approved',
+            metadata: { payment_id: String(paymentId), amount: paymentData.transaction_amount },
+          });
+        } catch (postgresErr) {
+          console.error('[api/payment/webhook] analytics write failed', postgresErr);
         }
 
         console.log(`[api/payment/webhook] pagamento ${paymentId} aprovado para ${paymentData.payer?.email}`);

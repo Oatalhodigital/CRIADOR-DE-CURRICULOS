@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { insertOrderPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 15000, label = 'payment'): Promise<T> =>
   Promise.race([
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { amount = 10, email, leadId } = await request.json();
+    const { amount = 10, email, leadId, plan } = await request.json();
 
     if (!email) {
       return NextResponse.json({ error: 'E-mail é obrigatório.' }, { status: 400 });
@@ -44,6 +45,27 @@ export async function POST(request: NextRequest) {
     );
 
     const transactionData = result.point_of_interaction?.transaction_data;
+
+    // Analytics complementar em Postgres (não bloqueia o fluxo principal)
+    try {
+      const amountCents = Math.round(amount * 100);
+      insertOrderPostgres({
+        lead_firestore_id: leadId || null,
+        resume_firestore_id: leadId || null,
+        plan: plan || 'unknown',
+        amount_cents: amountCents,
+        payment_method: 'pix',
+        mp_payment_id: result.id ? String(result.id) : null,
+        status: result.status || 'pending',
+      });
+      insertFunnelEventPostgres({
+        lead_firestore_id: leadId || null,
+        event_name: 'checkout_started',
+        metadata: { plan, amount_cents: amountCents, payment_method: 'pix' },
+      });
+    } catch (postgresErr) {
+      console.error('[api/payment/create] analytics write failed', postgresErr);
+    }
 
     return NextResponse.json({
       id: String(result.id),

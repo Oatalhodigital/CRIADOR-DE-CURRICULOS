@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Mail, Phone, MapPin, Globe, ChevronDown } from 'lucide-react';
 import { PersonalInfo } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
@@ -18,7 +18,113 @@ const PersonalInfoForm = () => {
   const [isLoadingCity, setIsLoadingCity] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
   const cityDropdownRef = useRef<HTMLDivElement>(null);
+  const cepInputRef = useRef<HTMLInputElement>(null);
   const cepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const formatCep = (raw: string) => {
+    const digits = (raw || '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length > 5) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return digits;
+  };
+
+  const getCepCaretPosition = (formatted: string, digitsBeforeCaret: number) => {
+    let digits = 0;
+    for (let i = 0; i < formatted.length; i++) {
+      if (/\d/.test(formatted[i])) {
+        digits += 1;
+        if (digits === digitsBeforeCaret) return i + 1;
+      }
+    }
+    return formatted.length;
+  };
+
+  const [cepInputValue, setCepInputValue] = useState(() => formatCep(personalInfo.zipCode || ''));
+
+  useEffect(() => {
+    // Sync local input when zipCode changes externally (e.g. loaded from localStorage)
+    if (cepInputRef.current && document.activeElement === cepInputRef.current) return;
+    const formatted = formatCep(personalInfo.zipCode || '');
+    if (formatted !== cepInputValue) {
+      setCepInputValue(formatted);
+    }
+  }, [personalInfo.zipCode, cepInputValue]);
+
+  const applyCepDigits = (rawDigits: string, caretTarget?: number) => {
+    const digits = rawDigits.slice(0, 8);
+    const formatted = formatCep(digits);
+    setCepInputValue(formatted);
+    handleChange('zipCode', formatted);
+    setCepError(null);
+
+    if (cepTimeoutRef.current) clearTimeout(cepTimeoutRef.current);
+    if (digits.length === 8) {
+      cepTimeoutRef.current = setTimeout(() => fetchAddressByCep(digits), 400);
+    }
+
+    if (cepInputRef.current && caretTarget !== undefined) {
+      const newCaret = getCepCaretPosition(formatted, caretTarget);
+      requestAnimationFrame(() => {
+        if (!cepInputRef.current) return;
+        cepInputRef.current.setSelectionRange(newCaret, newCaret);
+      });
+    }
+  };
+
+  const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const value = input.value;
+    const selectionStart = input.selectionStart || 0;
+    const digitsBeforeCaret = value.slice(0, selectionStart).replace(/\D/g, '').length;
+    const raw = value.replace(/\D/g, '');
+    const target = Math.min(digitsBeforeCaret, raw.length);
+    applyCepDigits(raw, target);
+  };
+
+  const handleCepBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    const event = e.nativeEvent as InputEvent;
+    if (event.inputType !== 'insertText' || !/^\d$/.test(event.data || '')) return;
+
+    const raw = input.value.replace(/\D/g, '');
+    const selStart = input.selectionStart || 0;
+    const selEnd = input.selectionEnd || 0;
+    const hasSelection = selStart !== selEnd;
+    const replacedDigits = input.value.slice(selStart, selEnd).replace(/\D/g, '').length;
+
+    if (raw.length - replacedDigits >= 8 && !hasSelection) {
+      e.preventDefault();
+    }
+  };
+
+  const handleCepKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    if (e.key.length === 1 && /\d/.test(e.key)) {
+      const raw = input.value.replace(/\D/g, '');
+      const selStart = input.selectionStart || 0;
+      const selEnd = input.selectionEnd || 0;
+      const hasSelection = selStart !== selEnd;
+      const replacedDigits = input.value.slice(selStart, selEnd).replace(/\D/g, '').length;
+      if (raw.length - replacedDigits >= 8 && !hasSelection) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleCepPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const input = e.currentTarget;
+    const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8);
+    if (!paste) return;
+
+    const selStart = input.selectionStart || 0;
+    const selEnd = input.selectionEnd || 0;
+    const current = input.value;
+    const before = current.slice(0, selStart).replace(/\D/g, '');
+    const after = current.slice(selEnd).replace(/\D/g, '');
+    const raw = (before + paste + after).slice(0, 8);
+
+    applyCepDigits(raw, raw.length);
+  };
 
   const brazilianStates = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
@@ -27,25 +133,6 @@ const PersonalInfoForm = () => {
 
   const handleChange = (field: keyof PersonalInfo, value: string) => {
     updatePersonalInfo({ ...personalInfo, [field]: value });
-  };
-
-  const handleCepChange = (value: string) => {
-    // Apply CEP mask: 00000-000 (8 digits total, hyphen after 5th)
-    const digits = value.replace(/\D/g, '').slice(0, 8);
-    const masked = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
-    handleChange('zipCode', masked);
-    setCepError(null);
-
-    if (cepTimeoutRef.current) {
-      clearTimeout(cepTimeoutRef.current);
-    }
-
-    // Auto-fill address via ViaCEP if CEP is complete
-    if (digits.length === 8) {
-      cepTimeoutRef.current = setTimeout(() => {
-        fetchAddressByCep(digits);
-      }, 400);
-    }
   };
 
   const fetchWithTimeout = (url: string, timeoutMs = 8000): Promise<Response> => {
@@ -193,12 +280,15 @@ const PersonalInfoForm = () => {
         <label className="block text-sm font-semibold text-gray-900">CEP</label>
         <div className="relative">
           <input
+            ref={cepInputRef}
             type="text"
             inputMode="numeric"
-            value={personalInfo.zipCode || ''}
-            onChange={(e) => handleCepChange(e.target.value)}
+            value={cepInputValue}
+            onChange={handleCepChange}
+            onKeyDown={handleCepKeyDown}
+            onBeforeInput={handleCepBeforeInput}
+            onPaste={handleCepPaste}
             placeholder="00000-000"
-            maxLength={9}
             className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
           />
         </div>

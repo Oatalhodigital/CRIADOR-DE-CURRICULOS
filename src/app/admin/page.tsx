@@ -26,12 +26,34 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<{ updatedAt: string; id: string } | null>(null);
 
-  const fetchData = async (adminEmail: string) => {
+  const mergeStats = (prev: AdminStats | null, next: AdminStats): AdminStats => {
+    if (!prev) return next;
+    const totalResumes = prev.totalResumes + next.totalResumes;
+    const paidCount = prev.paidCount + next.paidCount;
+    const totalRevenue = prev.totalRevenue + next.totalRevenue;
+    return {
+      totalResumes,
+      totalRevenue,
+      paidCount,
+      conversionRate: totalResumes > 0 ? ((paidCount / totalResumes) * 100).toFixed(1) : '0',
+    };
+  };
+
+  const fetchData = async (adminEmail: string, append = false, cursor?: { updatedAt: string; id: string }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/resumes', {
+      const url = new URL('/api/resumes', window.location.origin);
+      url.searchParams.set('limit', '50');
+      if (cursor?.updatedAt && cursor?.id) {
+        url.searchParams.set('cursorUpdatedAt', cursor.updatedAt);
+        url.searchParams.set('cursorId', cursor.id);
+      }
+
+      const res = await fetch(url.toString(), {
         headers: { 'x-admin-email': adminEmail },
       });
       if (!res.ok) {
@@ -39,8 +61,10 @@ export default function AdminPage() {
         throw new Error(data.error || 'Falha ao carregar dados.');
       }
       const data = await res.json();
-      setResumes(data.resumes);
-      setStats(data.stats);
+      setResumes((prev) => (append ? [...prev, ...data.resumes] : data.resumes));
+      setStats((prev) => (append ? mergeStats(prev, data.stats) : data.stats));
+      setHasMore(data.hasMore || false);
+      setNextCursor(data.nextCursor || null);
       setAuthenticated(true);
       sessionStorage.setItem('adminEmail', adminEmail);
     } catch (err) {
@@ -48,6 +72,12 @@ export default function AdminPage() {
       setAuthenticated(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = () => {
+    if (nextCursor) {
+      fetchData(email, true, nextCursor);
     }
   };
 
@@ -188,6 +218,17 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+          {hasMore && (
+            <div className="px-6 py-4 border-t border-gray-200 text-center">
+              <button
+                onClick={loadMore}
+                disabled={loading}
+                className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 font-medium"
+              >
+                {loading ? 'Carregando...' : 'Carregar mais'}
+              </button>
+            </div>
+          )}
         </div>
       </main>
     </div>

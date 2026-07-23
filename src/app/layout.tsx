@@ -4,8 +4,10 @@ import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { ResumeProvider } from '@/context/ResumeContext'
 import { LanguageProvider } from '@/context/LanguageContext'
+import { warnMissingEnvVars } from '@/lib/env-check'
 
 const inter = Inter({ subsets: ['latin'] })
+warnMissingEnvVars()
 
 export const metadata: Metadata = {
   title: 'Criador de Currículos | LS Soluções Digitais',

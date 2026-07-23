@@ -4,6 +4,8 @@ import { useState, useCallback } from 'react';
 import { Globe, Plus, Trash2, Languages } from 'lucide-react';
 import { Language } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+import { languageOptions } from '@/data/languages';
 
 const LanguagesForm = () => {
   const { resume, addLanguage, removeLanguage } = useResume();
@@ -105,17 +107,13 @@ const LanguagesForm = () => {
         </h3>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-900">Nome do Idioma</label>
-            <div className="relative">
-              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Ex: Inglês, Espanhol, Francês"
-                value={newLanguage.name}
-                onChange={(e) => setNewLanguage({ ...newLanguage, name: e.target.value })}
-                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
-              />
-            </div>
+            <SearchableSelect
+              label="Nome do Idioma"
+              options={languageOptions}
+              value={newLanguage.name || ''}
+              onChange={(value) => setNewLanguage({ ...newLanguage, name: value })}
+              placeholder="Ex: Inglês, Espanhol, Francês"
+            />
           </div>
           
           <div className="space-y-2">

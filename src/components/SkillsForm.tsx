@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Star, Plus, Trash2, Zap } from 'lucide-react';
 import { Skill } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+import { skillOptions } from '@/data/skills';
 
 const SkillsForm = () => {
   const { resume, addSkill, removeSkill, setDraftSkill } = useResume();
@@ -83,13 +85,13 @@ const SkillsForm = () => {
         </h3>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-900">Nome da Habilidade</label>
-            <input
-              type="text"
+            <SearchableSelect
+              label="Nome da Habilidade"
+              options={skillOptions}
+              value={newSkill.name || ''}
+              onChange={(value) => setNewSkill({ ...newSkill, name: value })}
               placeholder="Ex: React, Python, Design Gráfico"
-              value={newSkill.name}
-              onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+              allowFreeText
             />
           </div>
           

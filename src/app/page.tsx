@@ -288,6 +288,7 @@ export default function Home() {
         onClose={() => setShowCheckout(false)}
         onPaymentSuccess={handlePaymentSuccess}
         amount={checkoutAmount}
+        plan={selectedPlan || undefined}
       />
     </div>
   )

@@ -5,6 +5,8 @@ import { GraduationCap, Plus, Trash2, School } from 'lucide-react';
 import { Education } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+import { degreeOptions, fieldOptions } from '@/data/courses';
 
 const EducationForm = () => {
   const { resume, addEducation, updateEducation, removeEducation, setDraftEducation } = useResume();
@@ -101,24 +103,23 @@ const EducationForm = () => {
           </div>
           
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-900">Grau/Diploma</label>
-            <input
-              type="text"
+            <SearchableSelect
+              label="Grau/Diploma"
+              options={degreeOptions}
+              value={newEducation.degree || ''}
+              onChange={(value) => setNewEducation({ ...newEducation, degree: value })}
               placeholder="Ex: Bacharelado, Mestrado, Doutorado"
-              value={newEducation.degree}
-              onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
             />
           </div>
           
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-900">Área de Estudo</label>
-            <input
-              type="text"
+            <SearchableSelect
+              label="Área de Estudo"
+              options={fieldOptions}
+              value={newEducation.field || ''}
+              onChange={(value) => setNewEducation({ ...newEducation, field: value })}
               placeholder="Ex: Ciência da Computação"
-              value={newEducation.field}
-              onChange={(e) => setNewEducation({ ...newEducation, field: e.target.value })}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
+              allowFreeText
             />
           </div>
           

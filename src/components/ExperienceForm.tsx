@@ -5,6 +5,8 @@ import { Briefcase, Plus, Trash2, Building2 } from 'lucide-react';
 import { Experience } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
+import SearchableSelect from '@/components/ui/SearchableSelect';
+import { professionOptions } from '@/data/professions';
 
 const ExperienceForm = () => {
   const { resume, addExperience, updateExperience, removeExperience, setDraftExperience } = useResume();
@@ -98,13 +100,13 @@ const ExperienceForm = () => {
           </div>
           
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-gray-900">Cargo</label>
-            <input
-              type="text"
+            <SearchableSelect
+              label="Cargo"
+              options={professionOptions}
+              value={newExperience.position || ''}
+              onChange={(value) => setNewExperience({ ...newExperience, position: value })}
               placeholder="Seu cargo na empresa"
-              value={newExperience.position}
-              onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })}
-              className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
+              allowFreeText
             />
           </div>
           

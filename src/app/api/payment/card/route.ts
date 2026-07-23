@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { insertOrderPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 20000, label = 'payment'): Promise<T> =>
   Promise.race([
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
       amount,
       email,
       leadId,
+      plan,
       token,
       issuer_id,
       payment_method_id,
@@ -70,6 +72,27 @@ export async function POST(request: NextRequest) {
       20000,
       'create card'
     );
+
+    // Analytics complementar em Postgres (não bloqueia o fluxo principal)
+    try {
+      const amountCents = Math.round(Number(amount) * 100);
+      insertOrderPostgres({
+        lead_firestore_id: leadId || null,
+        resume_firestore_id: leadId || null,
+        plan: plan || 'unknown',
+        amount_cents: amountCents,
+        payment_method: 'credit_card',
+        mp_payment_id: result.id ? String(result.id) : null,
+        status: result.status || 'pending',
+      });
+      insertFunnelEventPostgres({
+        lead_firestore_id: leadId || null,
+        event_name: 'checkout_started',
+        metadata: { plan, amount_cents: amountCents, payment_method: 'credit_card' },
+      });
+    } catch (postgresErr) {
+      console.error('[api/payment/card] analytics write failed', postgresErr);
+    }
 
     return NextResponse.json({
       id: String(result.id),

@@ -19,11 +19,11 @@ const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 10
     .finally(() => clearTimeout(timeoutId));
 };
 
-const createPixPayment = async (amount: number, email: string, leadId?: string): Promise<PaymentData> => {
+const createPixPayment = async (amount: number, email: string, leadId?: string, plan?: string): Promise<PaymentData> => {
   const res = await fetchWithTimeout('/api/payment/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount, email, leadId }),
+    body: JSON.stringify({ amount, email, leadId, plan }),
   });
 
   if (!res.ok) {
@@ -44,12 +44,13 @@ const createCardPayment = async (
   formData: CardPaymentData,
   amount: number,
   email: string,
-  leadId?: string
+  leadId?: string,
+  plan?: string
 ): Promise<CardPaymentResult> => {
   const res = await fetchWithTimeout('/api/payment/card', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...formData, amount, email, leadId }),
+    body: JSON.stringify({ ...formData, amount, email, leadId, plan }),
   });
 
   if (!res.ok) {
@@ -96,6 +97,7 @@ interface CheckoutModalProps {
   onClose: () => void;
   onPaymentSuccess: (paymentId?: string) => void;
   amount?: number;
+  plan?: string;
 }
 
 const publicKey = process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '';
@@ -108,6 +110,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   onPaymentSuccess,
   amount = 0,
+  plan,
 }) => {
   const { resume } = useResume();
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
@@ -145,7 +148,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     resetPaymentState();
 
     try {
-      const data = await createPixPayment(amount, resume.personalInfo.email, resume.id);
+      const data = await createPixPayment(amount, resume.personalInfo.email, resume.id, plan);
       if (isMountedRef.current) {
         setPaymentData(data);
       }
@@ -159,7 +162,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         setIsLoading(false);
       }
     }
-  }, [amount, resume.personalInfo.email, resume.id, paymentMethod]);
+  }, [amount, resume.personalInfo.email, resume.id, paymentMethod, plan]);
 
   const handleCardSubmit = useCallback(
     async (formData: CardPaymentData) => {
@@ -175,7 +178,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setError(null);
 
       try {
-        const result = await createCardPayment(formData, amount, resume.personalInfo.email, resume.id);
+        const result = await createCardPayment(formData, amount, resume.personalInfo.email, resume.id, plan);
         if (isMountedRef.current) {
           setCardPaymentId(result.id);
           if (result.status === 'approved') {
@@ -197,7 +200,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }
       }
     },
-    [amount, resume.personalInfo.email, resume.id, onPaymentSuccess]
+    [amount, resume.personalInfo.email, resume.id, onPaymentSuccess, plan]
   );
 
   useEffect(() => {

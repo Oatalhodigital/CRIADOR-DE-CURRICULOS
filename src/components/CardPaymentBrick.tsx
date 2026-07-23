@@ -55,6 +55,18 @@ const CardPaymentBrick = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  if (!publicKey) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+        <p className="font-semibold mb-1">Pagamento por cartão indisponível</p>
+        <p>
+          A chave pública do Mercado Pago não está configurada. Tente o pagamento via PIX ou
+          entre em contato com o suporte.
+        </p>
+      </div>
+    );
+  }
+
   useEffect(() => {
     let isMounted = true;
 
