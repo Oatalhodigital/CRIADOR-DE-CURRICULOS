@@ -2,11 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "alias": [
-    "xn--currculorapidocomia-o1b.com.br",
-    "www.xn--currculorapidocomia-o1b.com.br",
-    "curriculorapidocomia.com.br",
-    "www.curriculorapidocomia.com.br"
-  ]
+  "installCommand": "npm install"
 }
