@@ -2,6 +2,7 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { adminDb } from '@/lib/firebase-admin';
 import { updateOrderStatusPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
+import { finalizePaymentDelivery } from '@/lib/paymentComplete';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'webhook'): Promise<T> =>
   Promise.race([
@@ -82,6 +83,17 @@ export async function POST(request: NextRequest) {
           });
         } catch (postgresErr) {
           console.error('[api/payment/webhook] analytics write failed', postgresErr);
+        }
+
+        // Dispara download automático (snapshot + e-mail) de forma assíncrona
+        try {
+          const payerEmail = (paymentData as any)?.payer?.email;
+          await finalizePaymentDelivery({
+            mpPaymentId: String(paymentId),
+            email: payerEmail,
+          });
+        } catch (deliveryErr) {
+          console.error('[api/payment/webhook] finalizePaymentDelivery failed', deliveryErr);
         }
 
         console.log(`[api/payment/webhook] pagamento ${paymentId} aprovado para ${paymentData.payer?.email}`);

@@ -1,42 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const enhanceSchema = z.object({
   text: z.string().min(1, 'Texto é obrigatório'),
   context: z.string().optional(),
   profession: z.string().optional(),
 });
-
-// Simple in-memory rate limiter (for production, consider using Redis or similar)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT = 30; // 30 requests per hour per IP
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT) {
-    return false;
-  }
-
-  record.count++;
-  return true;
-}
-
-function getClientIp(request: NextRequest): string {
-  // Try various headers for the real IP
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-  const ip = forwarded?.split(',')[0] || realIp || 'unknown';
-  return ip;
-}
 
 // Simple in-memory cache for repeated identical requests
 interface CacheEntry {
@@ -74,11 +45,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Rate limiting check
+  // Rate limiting check: 3 por minuto / 20 por hora por IP
   const clientIp = getClientIp(request);
-  if (!checkRateLimit(clientIp)) {
+  if (!checkRateLimit(clientIp, 3, 60 * 1000) || !checkRateLimit(`${clientIp}:hour`, 20, 60 * 60 * 1000)) {
     return NextResponse.json(
-      { error: 'Limite de chamadas de IA atingido. Tente novamente em 1 hora.' },
+      { error: 'Limite de chamadas de IA atingido. Tente novamente em alguns minutos.' },
       { status: 429 }
     );
   }

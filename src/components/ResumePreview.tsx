@@ -12,6 +12,7 @@ interface ResumePreviewProps {
   isPaid?: boolean;
   price?: number;
   onContinueToPayment?: () => void;
+  paymentId?: string;
 }
 
 const ResumePreview = ({
@@ -22,6 +23,7 @@ const ResumePreview = ({
   isPaid = false,
   price = 10,
   onContinueToPayment,
+  paymentId,
 }: ResumePreviewProps) => {
   const { personalInfo, experience, education, skills, languages, summary } = resume;
 
@@ -192,7 +194,7 @@ const ResumePreview = ({
             Habilidades e Competências
           </h2>
           <p className="text-sm text-black">
-            {allSkills.map((skill) => skill.name).join(' • ')}
+            {allSkills.map((skill) => (skill.description ? `${skill.name} (${skill.description})` : skill.name)).join(' • ')}
           </p>
         </div>
       )}
@@ -249,6 +251,18 @@ const ResumePreview = ({
             </div>
           </div>
         </>
+      )}
+
+      {isPaid && paymentId && (
+        <div className="absolute top-4 right-4 z-20">
+          <a
+            href={`/api/download/${paymentId}`}
+            download
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition-colors"
+          >
+            Baixar PDF
+          </a>
+        </div>
       )}
     </div>
   );

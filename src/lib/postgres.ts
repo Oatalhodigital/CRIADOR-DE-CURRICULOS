@@ -18,6 +18,24 @@ interface OrderInsertData {
   payment_method: 'pix' | 'credit_card';
   mp_payment_id?: string | null;
   status?: string;
+  downloads_allowed?: number;
+}
+
+interface OrderRow {
+  id: number;
+  lead_firestore_id: string | null;
+  resume_firestore_id: string | null;
+  plan: string;
+  amount_cents: number;
+  payment_method: string;
+  mp_payment_id: string | null;
+  status: string;
+  downloads_allowed: number;
+  downloads_used: number;
+  resume_snapshot: any | null;
+  payer_email: string | null;
+  confirmation_email_sent_at: Date | null;
+  confirmation_email_delivered_at: Date | null;
 }
 
 interface FunnelEventInsertData {
@@ -75,6 +93,12 @@ export async function ensurePostgresTables() {
       payment_method TEXT NOT NULL,
       mp_payment_id TEXT UNIQUE,
       status TEXT NOT NULL DEFAULT 'pending',
+      downloads_allowed INTEGER NOT NULL DEFAULT 1,
+      downloads_used INTEGER NOT NULL DEFAULT 0,
+      resume_snapshot JSONB,
+      payer_email TEXT,
+      confirmation_email_sent_at TIMESTAMPTZ,
+      confirmation_email_delivered_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`;
@@ -82,6 +106,13 @@ export async function ensurePostgresTables() {
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_orders_mp_payment_id ON orders(mp_payment_id)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_orders_lead_firestore_id ON orders(lead_firestore_id)`;
+
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS downloads_allowed INTEGER NOT NULL DEFAULT 1`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS downloads_used INTEGER NOT NULL DEFAULT 0`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS resume_snapshot JSONB`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payer_email TEXT`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_delivered_at TIMESTAMPTZ`;
 
     await pgQuery`CREATE TABLE IF NOT EXISTS funnel_events (
       id BIGSERIAL PRIMARY KEY,
@@ -125,16 +156,92 @@ export async function insertLeadPostgres(data: LeadInsertData) {
   }
 }
 
+export function getDownloadsForPlan(plan?: string): number {
+  const map: Record<string, number> = { single: 1, weekly: 2, monthly: 3 };
+  return map[plan || ''] || 1;
+}
+
 export async function insertOrderPostgres(data: OrderInsertData) {
   try {
     await ensurePostgresTables();
+    const downloadsAllowed = data.downloads_allowed ?? getDownloadsForPlan(data.plan);
     await pgQuery`
-      INSERT INTO orders (lead_firestore_id, resume_firestore_id, plan, amount_cents, currency, payment_method, mp_payment_id, status)
-      VALUES (${data.lead_firestore_id || null}, ${data.resume_firestore_id || null}, ${data.plan || 'unknown'}, ${data.amount_cents}, ${data.currency || 'BRL'}, ${data.payment_method}, ${data.mp_payment_id || null}, ${data.status || 'pending'})
+      INSERT INTO orders (lead_firestore_id, resume_firestore_id, plan, amount_cents, currency, payment_method, mp_payment_id, status, downloads_allowed)
+      VALUES (${data.lead_firestore_id || null}, ${data.resume_firestore_id || null}, ${data.plan || 'unknown'}, ${data.amount_cents}, ${data.currency || 'BRL'}, ${data.payment_method}, ${data.mp_payment_id || null}, ${data.status || 'pending'}, ${downloadsAllowed})
       ON CONFLICT (mp_payment_id) DO NOTHING
     `;
   } catch (err) {
     console.error('[postgres] insertOrder failed', err);
+  }
+}
+
+export async function getOrderByMpPaymentId(mpPaymentId: string) {
+  try {
+    await ensurePostgresTables();
+    const result = await pgQuery<OrderRow>`
+      SELECT * FROM orders WHERE mp_payment_id = ${mpPaymentId} LIMIT 1
+    `;
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('[postgres] getOrderByMpPaymentId failed', err);
+    return null;
+  }
+}
+
+export async function setOrderResumeSnapshot(mpPaymentId: string, snapshot: any) {
+  try {
+    await ensurePostgresTables();
+    await pgQuery`
+      UPDATE orders
+      SET resume_snapshot = ${JSON.stringify(snapshot)}::jsonb, updated_at = NOW()
+      WHERE mp_payment_id = ${mpPaymentId}
+    `;
+  } catch (err) {
+    console.error('[postgres] setOrderResumeSnapshot failed', err);
+  }
+}
+
+export async function setOrderPayerEmail(mpPaymentId: string, email: string) {
+  try {
+    await ensurePostgresTables();
+    await pgQuery`
+      UPDATE orders
+      SET payer_email = ${email}, updated_at = NOW()
+      WHERE mp_payment_id = ${mpPaymentId}
+    `;
+  } catch (err) {
+    console.error('[postgres] setOrderPayerEmail failed', err);
+  }
+}
+
+export async function markConfirmationEmailSent(mpPaymentId: string, delivered = false) {
+  try {
+    await ensurePostgresTables();
+    await pgQuery`
+      UPDATE orders
+      SET confirmation_email_sent_at = NOW(),
+          confirmation_email_delivered_at = ${delivered ? new Date() : null},
+          updated_at = NOW()
+      WHERE mp_payment_id = ${mpPaymentId}
+    `;
+  } catch (err) {
+    console.error('[postgres] markConfirmationEmailSent failed', err);
+  }
+}
+
+export async function recordDownload(mpPaymentId: string) {
+  try {
+    await ensurePostgresTables();
+    const result = await pgQuery<OrderRow>`
+      UPDATE orders
+      SET downloads_used = downloads_used + 1, updated_at = NOW()
+      WHERE mp_payment_id = ${mpPaymentId} AND downloads_used < downloads_allowed
+      RETURNING downloads_used, downloads_allowed
+    `;
+    return result.rows[0] || null;
+  } catch (err) {
+    console.error('[postgres] recordDownload failed', err);
+    return null;
   }
 }
 
@@ -156,7 +263,7 @@ export async function insertFunnelEventPostgres(data: FunnelEventInsertData) {
     await ensurePostgresTables();
     await pgQuery`
       INSERT INTO funnel_events (lead_firestore_id, event_name, metadata)
-      VALUES (${data.lead_firestore_id || null}, ${data.event_name}, ${data.metadata ? JSON.stringify(data.metadata) : null})
+      VALUES (${data.lead_firestore_id || null}, ${data.event_name}, ${data.metadata ? `${JSON.stringify(data.metadata)}::jsonb` : null})
     `;
   } catch (err) {
     console.error('[postgres] insertFunnelEvent failed', err);

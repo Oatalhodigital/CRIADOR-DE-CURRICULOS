@@ -7,6 +7,7 @@ import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { professionOptions } from '@/data/professions';
+import { generateExperienceDescription } from '@/lib/aiTemplates';
 
 const ExperienceForm = () => {
   const { resume, addExperience, updateExperience, removeExperience, setDraftExperience } = useResume();
@@ -150,6 +151,16 @@ const ExperienceForm = () => {
                 context={`Cargo de ${newExperience.position} na empresa ${newExperience.company}`}
                 profession={newExperience.position}
                 onEnhanced={(enhanced: string) => setNewExperience({ ...newExperience, description: enhanced })}
+                fallback={() =>
+                  generateExperienceDescription(
+                    newExperience.position || '',
+                    newExperience.company || '',
+                    newExperience.startDate,
+                    newExperience.endDate,
+                    newExperience.current,
+                    newExperience.description
+                  )
+                }
               />
             </div>
             <textarea

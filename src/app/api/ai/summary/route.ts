@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const summarySchema = z.object({
   experience: z.array(z.any()).min(1, 'Experiência é obrigatória'),
@@ -15,6 +16,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Serviço de IA não configurado.' },
       { status: 503 }
+    );
+  }
+
+  // Rate limiting check: 2 por minuto / 15 por hora por IP
+  const clientIp = getClientIp(request);
+  if (!checkRateLimit(clientIp, 2, 60 * 1000) || !checkRateLimit(`${clientIp}:hour`, 15, 60 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: 'Limite de chamadas de IA atingido. Tente novamente em alguns minutos.' },
+      { status: 429 }
     );
   }
 

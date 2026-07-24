@@ -6,6 +6,7 @@ import { Skill } from '@/types/resume';
 import { useResume } from '@/context/ResumeContext';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { skillOptions } from '@/data/skills';
+import { getSkillDescriptionOptions } from '@/data/skillDescriptions';
 
 const SkillsForm = () => {
   const { resume, addSkill, removeSkill, setDraftSkill } = useResume();
@@ -14,6 +15,7 @@ const SkillsForm = () => {
   const [newSkill, setNewSkill] = useState<Partial<Skill>>({
     name: '',
     level: 'Intermediate',
+    description: '',
   });
 
   // Update draft state in context for real-time preview
@@ -35,8 +37,9 @@ const SkillsForm = () => {
         id: generateId(),
         name: newSkill.name,
         level: newSkill.level || 'Intermediate',
+        description: newSkill.description,
       });
-      setNewSkill({ name: '', level: 'Intermediate' });
+      setNewSkill({ name: '', level: 'Intermediate', description: '' });
       setDraftSkill(null);
     }
   };
@@ -59,21 +62,26 @@ const SkillsForm = () => {
         {skills.map((skill) => (
           <div
             key={skill.id}
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white border border-gray-200 shadow-sm"
+            className="flex flex-col gap-1 px-4 py-2 rounded-full text-sm font-medium bg-white border border-gray-200 shadow-sm"
           >
-            <span className="text-gray-900">{skill.name}</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getLevelColor(skill.level)}`}>
-              {skill.level === 'Beginner' && 'Iniciante'}
-              {skill.level === 'Intermediate' && 'Intermediário'}
-              {skill.level === 'Advanced' && 'Avançado'}
-              {skill.level === 'Expert' && 'Expert'}
-            </span>
-            <button
-              onClick={() => removeSkill(skill.id)}
-              className="text-gray-600 hover:text-red-600 transition p-1 hover:bg-red-50 rounded-lg"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-900">{skill.name}</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getLevelColor(skill.level)}`}>
+                {skill.level === 'Beginner' && 'Iniciante'}
+                {skill.level === 'Intermediate' && 'Intermediário'}
+                {skill.level === 'Advanced' && 'Avançado'}
+                {skill.level === 'Expert' && 'Expert'}
+              </span>
+              <button
+                onClick={() => removeSkill(skill.id)}
+                className="text-gray-600 hover:text-red-600 transition p-1 hover:bg-red-50 rounded-lg"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {skill.description && (
+              <span className="text-xs text-gray-600 pl-1">{skill.description}</span>
+            )}
           </div>
         ))}
       </div>
@@ -89,8 +97,19 @@ const SkillsForm = () => {
               label="Nome da Habilidade"
               options={skillOptions}
               value={newSkill.name || ''}
-              onChange={(value) => setNewSkill({ ...newSkill, name: value })}
+              onChange={(value) => setNewSkill({ ...newSkill, name: value, description: '' })}
               placeholder="Ex: React, Python, Design Gráfico"
+              allowFreeText
+            />
+          </div>
+
+          <div className="space-y-2">
+            <SearchableSelect
+              label="Descrição da Habilidade"
+              options={getSkillDescriptionOptions(newSkill.name).map((d) => ({ value: d, label: d }))}
+              value={newSkill.description || ''}
+              onChange={(value) => setNewSkill({ ...newSkill, description: value })}
+              placeholder="Selecione ou descreva essa habilidade"
               allowFreeText
             />
           </div>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FileText, Sparkles, Lightbulb } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
+import { generateProfessionalSummary } from '@/lib/aiTemplates';
 
 const SummaryForm = () => {
   const { resume, updateSummary } = useResume();
@@ -45,8 +46,10 @@ const SummaryForm = () => {
       }
     } catch (error: any) {
       const message = error?.name === 'AbortError' ? 'Tempo esgotado. Tente novamente.' : (error instanceof Error ? error.message : 'Erro ao gerar resumo.');
-      setError(message);
+      setError('A IA está com alta demanda. Usamos um resumo profissional pronto para você editar.');
       console.error('Failed to generate summary:', error);
+      // Fallback: gera resumo a partir dos dados preenchidos
+      updateSummary(generateProfessionalSummary(resume.experience, resume.skills, resume.experience[0]?.position));
     } finally {
       setIsGenerating(false);
     }

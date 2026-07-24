@@ -23,25 +23,25 @@ const plans: Plan[] = [
   {
     id: 'single',
     name: 'Básico',
-    price: 7.98,
-    description: 'Currículo em PDF, 1 modelo',
-    features: ['1 currículo otimizado por IA', 'Download em PDF', 'Layout 100% ATS-friendly'],
+    price: 7.90,
+    description: '1 download do currículo',
+    features: ['1 download do currículo em PDF', 'Layout 100% ATS-friendly', 'Download disponível por 30 dias'],
   },
   {
     id: 'weekly',
     name: 'Intermediário',
     price: 12.49,
-    description: 'Currículo + carta de apresentação',
-    features: ['Tudo do Básico', 'Carta de apresentação otimizada', 'Modelo profissional extra'],
+    description: '2 downloads do currículo',
+    features: ['2 downloads do currículo em PDF', 'Layout 100% ATS-friendly', 'Downloads disponíveis por 30 dias'],
     highlighted: true,
     badge: 'MAIS VENDIDO',
   },
   {
     id: 'monthly',
     name: 'Completo',
-    price: 17.9,
-    description: 'Currículo + carta + IA ilimitada',
-    features: ['Tudo do Intermediário', 'IA ilimitada para melhorias', 'Prioridade no suporte'],
+    price: 17.90,
+    description: '3 downloads do currículo',
+    features: ['3 downloads do currículo em PDF', 'Layout 100% ATS-friendly', 'Downloads disponíveis por 30 dias'],
   },
 ]
 

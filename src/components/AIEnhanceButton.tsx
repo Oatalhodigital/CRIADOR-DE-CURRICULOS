@@ -9,6 +9,7 @@ interface AIEnhanceButtonProps {
   profession?: string;
   onEnhanced: (enhancedText: string) => void;
   className?: string;
+  fallback?: () => string;
 }
 
 const AIEnhanceButton = ({
@@ -17,6 +18,7 @@ const AIEnhanceButton = ({
   profession,
   onEnhanced,
   className = '',
+  fallback,
 }: AIEnhanceButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,11 @@ const AIEnhanceButton = ({
     } catch (err) {
       console.error('Failed to enhance text:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido.');
-      onEnhanced(text);
+      if (fallback) {
+        onEnhanced(fallback());
+      } else {
+        onEnhanced(text);
+      }
     } finally {
       setIsLoading(false);
     }

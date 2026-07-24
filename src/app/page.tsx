@@ -67,9 +67,8 @@ export default function Home() {
 
   const handleNext = () => {
     if (canGoNext) {
-      // If finishing preview step, show completion modal first
       if (currentStep === 'preview') {
-        setShowCompletion(true)
+        setCurrentStep('pricing')
       } else {
         setCurrentStep(steps[currentStepIndex + 1].id)
       }
@@ -88,7 +87,7 @@ export default function Home() {
   }
 
   const getPlanAmount = (plan: 'single' | 'weekly' | 'monthly') => {
-    return { single: 7.98, weekly: 12.49, monthly: 17.9 }[plan] ?? 0
+    return { single: 7.90, weekly: 12.49, monthly: 17.90 }[plan] ?? 0
   }
 
   const handleSelectPlan = (plan: 'single' | 'weekly' | 'monthly') => {
@@ -99,7 +98,7 @@ export default function Home() {
 
   const handlePaymentSuccess = (paymentId?: string) => {
     setIsPaid(true)
-    setShowCheckout(false)
+    setShowCheckout(true)
     if (paymentId) {
       setPaymentStatus(true, paymentId)
     }
@@ -270,6 +269,7 @@ export default function Home() {
                 isPaid={isPaid}
                 price={checkoutAmount}
                 onContinueToPayment={() => setCurrentStep('pricing')}
+                paymentId={resume.paymentId}
               />
             </div>
           </div>

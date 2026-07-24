@@ -7,6 +7,7 @@ import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import { degreeOptions, fieldOptions } from '@/data/courses';
+import { generateEducationDescription } from '@/lib/aiTemplates';
 
 const EducationForm = () => {
   const { resume, addEducation, updateEducation, removeEducation, setDraftEducation } = useResume();
@@ -162,6 +163,17 @@ const EducationForm = () => {
                 text={newEducation.description || ''}
                 context={`Formação em ${newEducation.degree} na instituição ${newEducation.institution}`}
                 onEnhanced={(enhanced: string) => setNewEducation({ ...newEducation, description: enhanced })}
+                fallback={() =>
+                  generateEducationDescription(
+                    newEducation.degree || '',
+                    newEducation.field || '',
+                    newEducation.institution || '',
+                    newEducation.startDate,
+                    newEducation.endDate,
+                    newEducation.current,
+                    newEducation.description
+                  )
+                }
               />
             </div>
             <textarea

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Clock, CheckCircle, AlertCircle, Download, Mail } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
 import CardPaymentBrick, { CardPaymentData } from './CardPaymentBrick';
 
@@ -120,6 +120,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'failed'>('pending');
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
   const pollCountRef = useRef(0);
   const isMountedRef = useRef(true);
 
@@ -128,8 +131,78 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCardPaymentId(null);
     setError(null);
     setPaymentStatus('pending');
+    setDownloadUrl(null);
+    setEmailSent(false);
+    setDeliveryError(null);
     pollCountRef.current = 0;
   };
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const triggerDownload = (url: string) => {
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => {
+        try {
+          document.body.removeChild(iframe);
+        } catch (e) {}
+      }, 30000);
+    } catch (e) {
+      window.location.href = url;
+    }
+  };
+
+  const completePaymentAndDownload = useCallback(
+    async (paymentId: string) => {
+      setDeliveryError(null);
+      let lastError = '';
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetchWithTimeout(
+            '/api/payment/complete',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                paymentId,
+                resume,
+                email: resume.personalInfo.email,
+              }),
+            },
+            15000
+          );
+
+          const data = await res.json().catch(() => ({}));
+
+          if (res.ok && data.success && data.downloadUrl) {
+            if (isMountedRef.current) {
+              setDownloadUrl(data.downloadUrl);
+              setEmailSent(data.emailSent === true);
+            }
+            triggerDownload(data.downloadUrl);
+            onPaymentSuccess(paymentId);
+            return;
+          }
+
+          lastError = data.error || `Tentativa ${attempt} falhou`;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+        }
+
+        if (attempt < 3) await sleep(2000 * attempt);
+      }
+
+      if (isMountedRef.current) {
+        setDeliveryError(lastError || 'Não foi possível preparar o download automático.');
+        onPaymentSuccess(paymentId);
+      }
+    },
+    [resume, onPaymentSuccess]
+  );
 
   const createPayment = useCallback(async () => {
     if (!resume.personalInfo.email) {
@@ -183,7 +256,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           setCardPaymentId(result.id);
           if (result.status === 'approved') {
             setPaymentStatus('approved');
-            onPaymentSuccess(result.id);
+            completePaymentAndDownload(result.id);
           } else {
             setError(`Pagamento ${result.status}. Verifique o status ou aguarde a confirmação.`);
           }
@@ -242,7 +315,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           if (isApproved) {
             setPaymentStatus('approved');
-            onPaymentSuccess(paymentData.id);
+            completePaymentAndDownload(paymentData.id);
             clearInterval(interval);
           }
         } catch (err) {
@@ -266,7 +339,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         const isApproved = await checkPaymentStatus(paymentData.id);
         if (isApproved) {
           setPaymentStatus('approved');
-          onPaymentSuccess(paymentData.id);
+          completePaymentAndDownload(paymentData.id);
         } else {
           setError('Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.');
         }
@@ -274,7 +347,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         const result = await searchPaymentByReference(resume.id);
         if (result.approved && result.paymentId) {
           setPaymentStatus('approved');
-          onPaymentSuccess(result.paymentId);
+          completePaymentAndDownload(result.paymentId);
         } else {
           setError('Pagamento ainda não confirmado. Se já pagou, aguarde alguns instantes e tente novamente.');
         }
@@ -438,15 +511,54 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         )}
 
         {paymentStatus === 'approved' && (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-6 space-y-4">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Pagamento Aprovado!</h3>
+              <p className="text-sm text-gray-600">
+                {deliveryError
+                  ? 'Baixe o currículo manualmente abaixo.'
+                  : 'O download automático começou. Se não iniciar, use o botão abaixo.'}
+              </p>
+            </div>
+            {emailSent && (
+              <div className="flex items-center justify-center gap-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg py-2">
+                <Mail className="w-4 h-4" />
+                <span>E-mail de confirmação enviado</span>
+              </div>
+            )}
+            {deliveryError && (
+              <div className="text-sm text-red-700 bg-red-50 rounded-lg p-3">
+                {deliveryError}
+              </div>
+            )}
+            {downloadUrl ? (
+              <a
+                href={downloadUrl}
+                download
+                className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
+              >
+                <Download className="w-5 h-5" />
+                Baixar Currículo
+              </a>
+            ) : deliveryError ? (
+              <button
+                onClick={() => {
+                  const pid = paymentData?.id || cardPaymentId;
+                  if (pid) completePaymentAndDownload(pid);
+                }}
+                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition"
+              >
+                Tentar preparar download novamente
+              </button>
+            ) : null}
             <button
-              onClick={() => onPaymentSuccess()}
-              className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
+              onClick={onClose}
+              className="w-full bg-gray-100 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-200 transition"
             >
-              Baixar Currículo
+              Fechar
             </button>
           </div>
         )}
