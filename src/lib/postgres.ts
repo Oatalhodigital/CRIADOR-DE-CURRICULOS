@@ -263,7 +263,7 @@ export async function insertFunnelEventPostgres(data: FunnelEventInsertData) {
     await ensurePostgresTables();
     await pgQuery`
       INSERT INTO funnel_events (lead_firestore_id, event_name, metadata)
-      VALUES (${data.lead_firestore_id || null}, ${data.event_name}, ${data.metadata ? `${JSON.stringify(data.metadata)}::jsonb` : null})
+      VALUES (${data.lead_firestore_id || null}, ${data.event_name}, ${data.metadata ? JSON.stringify(data.metadata) : null}::jsonb)
     `;
   } catch (err) {
     console.error('[postgres] insertFunnelEvent failed', err);
