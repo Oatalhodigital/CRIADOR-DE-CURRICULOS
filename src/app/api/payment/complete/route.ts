@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (err) {
     console.error('[api/payment/complete] error', err);
-    return NextResponse.json({ error: 'Falha ao preparar download.' }, { status: 500 });
+    const details = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: 'Falha ao preparar download.', details }, { status: 500 });
   }
 }
