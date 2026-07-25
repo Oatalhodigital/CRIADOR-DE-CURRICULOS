@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileText, Sparkles, Lightbulb } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
 import AIEnhanceButton from './AIEnhanceButton';
@@ -10,22 +10,34 @@ const SummaryForm = () => {
   const { resume, updateSummary } = useResume();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
-  const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
-  };
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleGenerateSummary = async () => {
     if (resume.experience.length === 0 || resume.skills.length === 0) {
       return;
     }
 
+    // Cancela requisição anterior, se houver
+    abortControllerRef.current?.abort();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
+
     setIsGenerating(true);
     setError(null);
+
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     try {
-      const res = await fetchWithTimeout('/api/ai/summary', {
+      const res = await fetch('/api/ai/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -33,7 +45,12 @@ const SummaryForm = () => {
           skills: resume.skills,
           profession: resume.experience[0]?.position,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (requestId !== requestIdRef.current) return;
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -41,17 +58,26 @@ const SummaryForm = () => {
       }
 
       const data = await res.json();
+
+      if (requestId !== requestIdRef.current) return;
+
       if (data.summary) {
         updateSummary(data.summary);
       }
     } catch (error: any) {
-      const message = error?.name === 'AbortError' ? 'Tempo esgotado. Tente novamente.' : (error instanceof Error ? error.message : 'Erro ao gerar resumo.');
+      clearTimeout(timeoutId);
+
+      if (requestId !== requestIdRef.current) return;
+
       setError('A IA está com alta demanda. Usamos um resumo profissional pronto para você editar.');
       console.error('Failed to generate summary:', error);
       // Fallback: gera resumo a partir dos dados preenchidos
       updateSummary(generateProfessionalSummary(resume.experience, resume.skills, resume.experience[0]?.position));
     } finally {
-      setIsGenerating(false);
+      if (requestId === requestIdRef.current) {
+        setIsGenerating(false);
+        abortControllerRef.current = null;
+      }
     }
   };
 

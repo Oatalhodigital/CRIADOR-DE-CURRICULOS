@@ -20,6 +20,7 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
   const [error, setError] = useState('')
 
   const mountedRef = useRef(true)
+  const resolvedRef = useRef(false)
   useEffect(() => {
     mountedRef.current = true
     return () => {
@@ -126,59 +127,65 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
     setGoogleLoading(true)
     setError('')
+    resolvedRef.current = false
+
     const provider = new GoogleAuthProvider()
     provider.setCustomParameters({ prompt: 'select_account' })
 
     const timeoutId = setTimeout(() => {
-      setGoogleLoading(false)
-      setError('Tempo esgotado ao conectar com o Google. Tente novamente.')
-      console.error('LeadCaptureModal: Google login timeout after 10s')
+      if (mountedRef.current && !resolvedRef.current) {
+        setGoogleLoading(false)
+        setError('A conexão com o Google está demorando. Você pode continuar preenchendo manualmente.')
+      }
     }, 10000)
 
     try {
-      const credential = await Promise.race([
-        signInWithPopup(auth, provider),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Firebase auth timeout')), 10000)
-        ),
-      ])
+      const credential = await signInWithPopup(auth, provider)
 
+      resolvedRef.current = true
       clearTimeout(timeoutId)
 
-      if (credential && 'user' in credential) {
-        setName(credential.user.displayName || name)
-        setEmail(credential.user.email || email)
+      if (mountedRef.current) {
+        setGoogleLoading(false)
+        setError('')
+        if (credential && 'user' in credential) {
+          setName(credential.user.displayName || name)
+          setEmail(credential.user.email || email)
+        }
       }
     } catch (err: any) {
+      resolvedRef.current = true
       clearTimeout(timeoutId)
-      const code = err?.code || ''
-      const message = err?.message || ''
 
-      let userMessage = 'Erro ao fazer login com Google. Tente novamente.'
-      if (code === 'auth/unauthorized-domain') {
-        userMessage = 'Este domínio não está autorizado no Firebase Auth. Verifique os domínios autorizados no Console do Firebase.'
-      } else if (
-        code === 'auth/configuration-not-found' ||
-        code === 'auth/operation-not-allowed' ||
-        code === 'auth/popup-closed-by-user'
-      ) {
-        userMessage =
-          'Login com Google não está habilitado ou foi cancelado. Verifique o Console do Firebase.'
-      } else if (
-        code === 'auth/web-storage-unsupported' ||
-        code === 'auth/storage-unsupported'
-      ) {
-        userMessage = 'Cookies ou armazenamento local estão desabilitados. Habilite-os para fazer login com o Google.'
-      } else if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
-        userMessage = 'Popup de login bloqueado ou fechado. Permitua popups para este site.'
-      } else if (message.includes('timeout')) {
-        userMessage = 'Tempo esgotado ao conectar com o Google. Tente novamente.'
+      if (mountedRef.current) {
+        setGoogleLoading(false)
+
+        const code = err?.code || ''
+        const message = err?.message || ''
+
+        let userMessage = 'Erro ao fazer login com Google. Tente novamente.'
+        if (code === 'auth/unauthorized-domain') {
+          userMessage = 'Este domínio não está autorizado no Firebase Auth. Verifique os domínios autorizados no Console do Firebase.'
+        } else if (
+          code === 'auth/configuration-not-found' ||
+          code === 'auth/operation-not-allowed'
+        ) {
+          userMessage =
+            'Login com Google não está habilitado ou foi cancelado. Verifique o Console do Firebase.'
+        } else if (
+          code === 'auth/web-storage-unsupported' ||
+          code === 'auth/storage-unsupported'
+        ) {
+          userMessage = 'Cookies ou armazenamento local estão desabilitados. Habilite-os para fazer login com o Google.'
+        } else if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+          userMessage = 'Popup de login bloqueado ou fechado. Permitua popups para este site.'
+        } else if (message.includes('timeout')) {
+          userMessage = 'Tempo esgotado ao conectar com o Google. Tente novamente.'
+        }
+
+        setError(userMessage)
+        console.error('LeadCaptureModal: Google login error', { code, message, timestamp: new Date().toISOString() })
       }
-
-      setError(userMessage)
-      console.error('LeadCaptureModal: Google login error', { code, message, timestamp: new Date().toISOString() })
-    } finally {
-      setGoogleLoading(false)
     }
   }
 

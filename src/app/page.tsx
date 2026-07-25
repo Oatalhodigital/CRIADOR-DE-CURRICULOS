@@ -18,7 +18,7 @@ import LeadCaptureModal from '@/components/LeadCaptureModal'
 import CheckoutModal from '@/components/CheckoutModal'
 import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
-type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'preview' | 'pricing'
+type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'pricing'
 
 const useTranslatedSteps = () => {
   const { t } = useLanguage();
@@ -29,7 +29,6 @@ const useTranslatedSteps = () => {
     { id: 'skills' as Step, label: t('steps.skills'), icon: Zap },
     { id: 'languages' as Step, label: t('steps.languages'), icon: Globe },
     { id: 'summary' as Step, label: t('steps.summary'), icon: FileText },
-    { id: 'preview' as Step, label: t('steps.preview'), icon: FileText },
     { id: 'pricing' as Step, label: t('steps.pricing'), icon: CreditCard },
   ];
 };
@@ -67,11 +66,7 @@ export default function Home() {
 
   const handleNext = () => {
     if (canGoNext) {
-      if (currentStep === 'preview') {
-        setCurrentStep('pricing')
-      } else {
-        setCurrentStep(steps[currentStepIndex + 1].id)
-      }
+      setCurrentStep(steps[currentStepIndex + 1].id)
     }
   }
 
@@ -130,31 +125,6 @@ export default function Home() {
         return <LanguagesForm />
       case 'summary':
         return <SummaryForm />
-      case 'preview':
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('steps.preview')}</h2>
-            <p className="text-gray-600 mb-6">
-              Revise seu currículo no painel ao lado. Quando estiver satisfeito, clique em {t('common.next')} para finalizar.
-            </p>
-            <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={handleBack}
-                className="px-6 py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 inline mr-2" />
-                {t('common.back')}
-              </button>
-              <button
-                onClick={handleNext}
-                className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold"
-              >
-                {t('common.next')}
-                <ArrowRight className="w-4 h-4 inline ml-2" />
-              </button>
-            </div>
-          </div>
-        )
       case 'pricing':
         return <PricingCards onSelectPlan={handleSelectPlan} />
       default:
@@ -234,7 +204,7 @@ export default function Home() {
             </div>
 
             {/* Navigation Buttons */}
-            {currentStep !== 'preview' && currentStep !== 'pricing' && (
+            {currentStep !== 'pricing' && (
               <div className="flex justify-between items-center mt-6">
                 <button
                   onClick={handleBack}
@@ -249,7 +219,7 @@ export default function Home() {
                   disabled={!canGoNext}
                   className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                 >
-                  {currentStep === 'summary' ? t('steps.preview') : t('common.next')}
+                  {t('common.next')}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

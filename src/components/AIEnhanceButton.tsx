@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 
 interface AIEnhanceButtonProps {
@@ -22,33 +22,51 @@ const AIEnhanceButton = ({
 }: AIEnhanceButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
-  };
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
 
   const handleEnhance = async () => {
     if (!text.trim()) return;
 
+    // Cancela requisição anterior, se houver
+    abortControllerRef.current?.abort();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const requestId = ++requestIdRef.current;
+
     setIsLoading(true);
     setError(null);
+
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
-      const res = await fetchWithTimeout('/api/ai/enhance', {
+      const res = await fetch('/api/ai/enhance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, context, profession }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+
+      if (requestId !== requestIdRef.current) return;
+
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || 'Falha ao melhorar texto.');
       }
 
       const data = await res.json();
+
+      if (requestId !== requestIdRef.current) return;
+
       onEnhanced(data.enhanced || text);
     } catch (err) {
+      clearTimeout(timeoutId);
+
+      if (requestId !== requestIdRef.current) return;
+
       console.error('Failed to enhance text:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido.');
       if (fallback) {
@@ -57,7 +75,10 @@ const AIEnhanceButton = ({
         onEnhanced(text);
       }
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+        abortControllerRef.current = null;
+      }
     }
   };
 
