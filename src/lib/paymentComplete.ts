@@ -5,11 +5,10 @@ import {
   updateOrderStatusPostgres,
   setOrderResumeSnapshot,
   setOrderPayerEmail,
-  markConfirmationEmailSent,
   insertOrderPostgres,
   insertFunnelEventPostgres,
 } from './postgres';
-import { sendPaymentConfirmationEmail, getAppUrl } from './email';
+import { getAppUrl } from './email';
 import { Resume } from '@/types/resume';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'payment'): Promise<T> =>
@@ -127,28 +126,17 @@ export async function finalizePaymentDelivery({
   }
 
   const downloadUrl = `${getAppUrl()}/api/download/${mpPaymentId}`;
-  let emailSent = false;
-
-  if (payerEmail && !order?.confirmation_email_sent_at) {
-    const result = await sendPaymentConfirmationEmail(payerEmail, mpPaymentId, order?.plan || 'unknown', downloadUrl);
-    emailSent = result.success;
-    if (result.success) {
-      await markConfirmationEmailSent(mpPaymentId, true);
-    } else {
-      await markConfirmationEmailSent(mpPaymentId, false);
-    }
-  }
 
   await insertFunnelEventPostgres({
     lead_firestore_id: order?.lead_firestore_id || order?.resume_firestore_id || null,
     event_name: 'payment_delivered',
-    metadata: { mp_payment_id: mpPaymentId, email_sent: emailSent, plan: order?.plan },
+    metadata: { mp_payment_id: mpPaymentId, email_sent: false, plan: order?.plan },
   });
 
   return {
     success: true,
     downloadUrl,
-    emailSent,
+    emailSent: false,
     payerEmail,
     downloadsAllowed: order?.downloads_allowed || 1,
     downloadsUsed: order?.downloads_used || 0,

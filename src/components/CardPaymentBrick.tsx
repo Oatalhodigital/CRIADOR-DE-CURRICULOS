@@ -44,6 +44,10 @@ const loadScript = (src: string) =>
     document.body.appendChild(script);
   });
 
+const SDK_URL = 'https://sdk.mercadopago.com/js/v2';
+const INIT_TIMEOUT_MS = 15000;
+const MAX_RETRIES = 2;
+
 const CardPaymentBrick = ({
   publicKey,
   amount,
@@ -54,6 +58,15 @@ const CardPaymentBrick = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const mountedRef = useRef(true);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishedRef = useRef(false);
+  const onSubmitRef = useRef(onSubmit);
+  const onErrorRef = useRef(onError);
+
+  onSubmitRef.current = onSubmit;
+  onErrorRef.current = onError;
 
   if (!publicKey) {
     return (
@@ -68,15 +81,36 @@ const CardPaymentBrick = ({
   }
 
   useEffect(() => {
-    let isMounted = true;
+    mountedRef.current = true;
+    finishedRef.current = false;
+
+    console.log('[CardPaymentBrick] iniciando', {
+      publicKeyPrefix: publicKey ? `${publicKey.slice(0, 6)}...` : 'EMPTY',
+      attempt: retryCount + 1,
+      timestamp: new Date().toISOString(),
+    });
 
     const initBrick = async () => {
       try {
-        await loadScript('https://sdk.mercadopago.com/js/v2');
-        if (!isMounted || !window.MercadoPago) return;
+        setLoading(true);
+        setError(null);
+
+        await loadScript(SDK_URL);
+
+        if (!mountedRef.current) return;
+        if (!window.MercadoPago) {
+          throw new Error('SDK do Mercado Pago não foi carregado corretamente.');
+        }
 
         const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' });
         const bricksBuilder = mp.bricks();
+
+        if (window.cardPaymentBrickController) {
+          try {
+            await window.cardPaymentBrickController.unmount();
+          } catch {}
+          window.cardPaymentBrickController = undefined;
+        }
 
         const settings = {
           initialization: {
@@ -85,26 +119,41 @@ const CardPaymentBrick = ({
           },
           callbacks: {
             onFormMounted: (formError: any) => {
+              if (!mountedRef.current) return;
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+              }
               if (formError) {
+                finishedRef.current = true;
                 console.error('CardPaymentBrick: onFormMounted error', formError);
                 setError(formError.message || 'Erro ao montar formulário de cartão');
-                onError?.(formError);
+                onErrorRef.current?.(formError);
+                setLoading(false);
+              } else {
+                setLoading(false);
               }
-              setLoading(false);
             },
             onSubmit: async (formData: CardPaymentData) => {
               try {
-                await onSubmit(formData);
+                await onSubmitRef.current?.(formData);
               } catch (err) {
                 console.error('CardPaymentBrick: onSubmit error', err);
                 throw err;
               }
             },
             onError: (err: any) => {
+              if (!mountedRef.current) return;
+              if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+              }
+              finishedRef.current = true;
               console.error('CardPaymentBrick: SDK error', err);
               const message = err?.message || 'Erro no formulário de cartão. Verifique os dados e tente novamente.';
               setError(message);
-              onError?.(err);
+              onErrorRef.current?.(err);
+              setLoading(false);
             },
           },
           customization: {
@@ -114,23 +163,64 @@ const CardPaymentBrick = ({
           },
         };
 
-        if (window.cardPaymentBrickController) {
-          try {
-            await window.cardPaymentBrickController.unmount();
-          } catch {}
+        const createPromise = bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', settings).then((controller: any) => {
+          if (!mountedRef.current || finishedRef.current) {
+            try {
+              controller?.unmount?.();
+            } catch {}
+            return null;
+          }
+          return controller;
+        });
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutRef.current = setTimeout(() => {
+            reject(new Error('Tempo esgotado ao carregar o formulário de cartão.'));
+          }, INIT_TIMEOUT_MS);
+        });
+
+        const controller = await Promise.race([createPromise, timeoutPromise]);
+
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
         }
 
-        window.cardPaymentBrickController = await bricksBuilder.create(
-          'cardPayment',
-          'cardPaymentBrick_container',
-          settings
-        );
-      } catch (err: any) {
-        if (isMounted) {
-          const message = err?.message || 'Erro ao inicializar formulário de cartão';
-          setError(message);
+        if (!mountedRef.current || finishedRef.current) {
+          if (controller) {
+            try {
+              controller.unmount?.();
+            } catch {}
+          }
+          return;
+        }
+
+        if (controller) {
+          window.cardPaymentBrickController = controller;
           setLoading(false);
-          onError?.(err);
+        } else {
+          throw new Error('Brick de cartão não retornou um controlador válido.');
+        }
+      } catch (err: any) {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        finishedRef.current = true;
+        if (!mountedRef.current) return;
+
+        const message = err?.message || 'Erro ao inicializar formulário de cartão.';
+        console.error('[CardPaymentBrick] init error', { message, attempt: retryCount + 1 });
+
+        if (retryCount < MAX_RETRIES) {
+          console.log('[CardPaymentBrick] tentando novamente...', { nextAttempt: retryCount + 2 });
+          setTimeout(() => {
+            if (mountedRef.current) setRetryCount((c) => c + 1);
+          }, 1000 * (retryCount + 1));
+        } else {
+          setError('Não foi possível carregar o formulário de cartão no momento. Tente novamente ou use o PIX.');
+          setLoading(false);
+          onErrorRef.current?.(err);
         }
       }
     };
@@ -138,14 +228,20 @@ const CardPaymentBrick = ({
     initBrick();
 
     return () => {
-      isMounted = false;
+      mountedRef.current = false;
+      finishedRef.current = true;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       if (window.cardPaymentBrickController) {
         try {
           window.cardPaymentBrickController.unmount?.();
         } catch {}
+        window.cardPaymentBrickController = undefined;
       }
     };
-  }, [publicKey, amount, email, onSubmit, onError]);
+  }, [publicKey, amount, email, retryCount]);
 
   return (
     <div className="space-y-4">
@@ -153,11 +249,23 @@ const CardPaymentBrick = ({
         <div className="flex flex-col items-center justify-center py-8 text-gray-600">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mb-3" />
           <p className="text-sm">Carregando formulário de cartão...</p>
+          {retryCount > 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Tentativa {retryCount + 1} de {MAX_RETRIES + 1}
+            </p>
+          )}
         </div>
       )}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-          {error}
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 space-y-3">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => setRetryCount((c) => c + 1)}
+            className="text-sm font-semibold underline hover:text-red-800"
+          >
+            Tentar novamente
+          </button>
         </div>
       )}
       <div id="cardPaymentBrick_container" ref={containerRef} />

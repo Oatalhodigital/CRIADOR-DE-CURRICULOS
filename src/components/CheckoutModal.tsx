@@ -139,20 +139,44 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const triggerDownload = (url: string) => {
-    try {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      setTimeout(() => {
-        try {
-          document.body.removeChild(iframe);
-        } catch (e) {}
-      }, 30000);
-    } catch (e) {
-      window.location.href = url;
+  const downloadPdf = async (url: string, retries = 2): Promise<void> => {
+    let lastError = '';
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+      try {
+        console.log('[CheckoutModal] iniciando download de PDF', { attempt, url, timestamp: new Date().toISOString() });
+        const res = await fetchWithTimeout(
+          url,
+          { headers: { 'X-Requested-With': 'checkout-autodownload' } },
+          20000
+        );
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Erro ${res.status} ao baixar PDF.`);
+        }
+
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = 'curriculo.pdf';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        console.log('[CheckoutModal] download de PDF concluído', { attempt });
+        return;
+      } catch (err: any) {
+        lastError = err instanceof Error ? err.message : String(err);
+        console.error(`[CheckoutModal] tentativa ${attempt} de download falhou`, { error: lastError, url });
+
+        const isNetworkError = err instanceof TypeError || err?.name === 'AbortError' || lastError.toLowerCase().includes('network');
+        if (!isNetworkError || attempt > retries) break;
+        await sleep(1000 * attempt);
+      }
     }
+    throw new Error(lastError || 'Não foi possível iniciar o download automático.');
   };
 
   const completePaymentAndDownload = useCallback(
@@ -183,7 +207,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               setDownloadUrl(data.downloadUrl);
               setEmailSent(data.emailSent === true);
             }
-            triggerDownload(data.downloadUrl);
+            try {
+              await downloadPdf(data.downloadUrl, 2);
+            } catch (downloadErr) {
+              console.error('[CheckoutModal] download automático falhou', { error: downloadErr instanceof Error ? downloadErr.message : String(downloadErr), paymentId });
+              if (isMountedRef.current) {
+                setDeliveryError(downloadErr instanceof Error ? downloadErr.message : 'Download automático não iniciou. Use o botão abaixo.');
+              }
+            }
             onPaymentSuccess(paymentId);
             return;
           }
@@ -236,6 +267,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
     }
   }, [amount, resume.personalInfo.email, resume.id, paymentMethod, plan]);
+
+  const handleCardError = useCallback((err: any) => {
+    console.error('Card brick error', err);
+  }, []);
 
   const handleCardSubmit = useCallback(
     async (formData: CardPaymentData) => {
@@ -494,7 +529,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   amount={amount}
                   email={resume.personalInfo.email}
                   onSubmit={handleCardSubmit}
-                  onError={(err) => console.error('Card brick error', err)}
+                  onError={handleCardError}
                 />
                 {cardPaymentId && (
                   <button
@@ -535,14 +570,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             )}
             {downloadUrl ? (
-              <a
-                href={downloadUrl}
-                download
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await downloadPdf(downloadUrl, 0);
+                  } catch (err) {
+                    console.error('[CheckoutModal] download manual falhou', err);
+                    setDeliveryError(err instanceof Error ? err.message : 'Erro ao baixar. Tente novamente.');
+                  }
+                }}
                 className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
               >
                 <Download className="w-5 h-5" />
                 Baixar Currículo
-              </a>
+              </button>
             ) : deliveryError ? (
               <button
                 onClick={() => {
