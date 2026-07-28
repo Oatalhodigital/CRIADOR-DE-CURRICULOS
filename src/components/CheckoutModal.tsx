@@ -578,7 +578,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     await downloadPdf(downloadUrl, 0);
                   } catch (err) {
                     console.error('[CheckoutModal] download manual falhou', err);
-                    setDeliveryError(err instanceof Error ? err.message : 'Erro ao baixar. Tente novamente.');
+                    setDeliveryError('Não foi possível baixar o arquivo. Tente novamente mais tarde.');
                   }
                 }}
                 className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
