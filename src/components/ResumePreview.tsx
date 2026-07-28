@@ -82,14 +82,14 @@ const ResumePreview = ({
       )}
 
       <div
-        className={`w-[210mm] min-h-[297mm] bg-white p-10 shadow-2xl text-black mx-auto print:shadow-none print:p-8 print:w-full print:min-h-full font-sans rounded-sm relative ${!isPaid ? 'select-none print:hidden' : ''}`}
+        className={`w-full max-w-[210mm] min-h-0 sm:min-h-[297mm] bg-white p-4 sm:p-6 lg:p-10 shadow-2xl text-black mx-auto print:shadow-none print:p-8 print:w-[210mm] print:min-h-[297mm] font-sans rounded-sm relative ${!isPaid ? 'select-none print:hidden' : ''}`}
         style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)' }}
         onContextMenu={!isPaid ? (e) => e.preventDefault() : undefined}
         onCopy={!isPaid ? (e) => e.preventDefault() : undefined}
       >
       {/* Header - ATS Friendly */}
-      <div className="border-b-2 border-black pb-4 mb-6">
-        <h1 className="text-3xl font-bold text-black tracking-normal mb-1 uppercase">
+      <div className="border-b-2 border-black pb-4 mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-black tracking-normal mb-1 uppercase break-words">
           {personalInfo.fullName || 'SEU NOME'}
         </h1>
         <div className="text-sm text-black space-y-1 mt-3">
@@ -122,7 +122,7 @@ const ResumePreview = ({
       {/* Professional Summary */}
       {summary && (
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-black uppercase mb-2 border-b border-gray-300 pb-1">
+          <h2 className="text-base sm:text-lg font-bold text-black uppercase mb-2 border-b border-gray-300 pb-1">
             Resumo Profissional
           </h2>
           <p className="text-sm text-black leading-relaxed">
@@ -134,13 +134,13 @@ const ResumePreview = ({
       {/* Experience */}
       {allExperience.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
+          <h2 className="text-base sm:text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
             Experiência Profissional
           </h2>
           {allExperience.map((exp, index) => (
             <div key={exp.id || `draft-${index}`} className="mb-4">
-              <div className="flex justify-between items-baseline">
-                <h3 className="font-bold text-black text-sm">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
+                <h3 className="font-bold text-black text-sm break-words">
                   {exp.company}
                 </h3>
                 <span className="text-sm text-black">
@@ -161,13 +161,13 @@ const ResumePreview = ({
       {/* Education */}
       {allEducation && allEducation.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
+          <h2 className="text-base sm:text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
             Educação
           </h2>
           {allEducation.map((edu, index) => (
             <div key={edu.id || `draft-${index}`} className="mb-3">
-              <div className="flex justify-between items-baseline">
-                <h3 className="font-bold text-black text-sm">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
+                <h3 className="font-bold text-black text-sm break-words">
                   {edu.institution}
                 </h3>
                 <span className="text-sm text-black">
@@ -190,7 +190,7 @@ const ResumePreview = ({
       {/* Skills */}
       {allSkills.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
+          <h2 className="text-base sm:text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
             Habilidades e Competências
           </h2>
           <p className="text-sm text-black">
@@ -202,7 +202,7 @@ const ResumePreview = ({
       {/* Languages */}
       {languages && languages.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
+          <h2 className="text-base sm:text-lg font-bold text-black uppercase mb-3 border-b border-gray-300 pb-1">
             Idiomas
           </h2>
           <p className="text-sm text-black">
@@ -227,8 +227,8 @@ const ResumePreview = ({
             className="absolute inset-x-0 top-[45%] bottom-0 z-10 bg-gradient-to-b from-white/10 via-white/80 to-white/95 backdrop-blur-[3px] pointer-events-auto select-none"
             aria-hidden="true"
           />
-          <div className="absolute inset-x-0 top-[55%] z-20 flex flex-col items-center justify-start px-6 pointer-events-auto select-text">
-            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-xl max-w-sm text-center">
+          <div className="absolute inset-x-0 top-[55%] z-20 flex flex-col items-center justify-start px-4 sm:px-6 pointer-events-auto select-text">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-xl w-[90%] max-w-xs text-center">
               <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-6 h-6 text-emerald-600" />
               </div>

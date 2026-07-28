@@ -96,7 +96,7 @@ export default function AdminPage() {
 
   if (!authenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center px-6">
         <form
           onSubmit={handleLogin}
           className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg max-w-md w-full"
@@ -130,7 +130,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-[100dvh] bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold text-gray-900">Dashboard Admin</h1>

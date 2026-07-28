@@ -399,10 +399,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 relative animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-6 relative animate-in fade-in slide-in-from-bottom-4 duration-300">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+          className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600 transition rounded-lg hover:bg-gray-100"
+          aria-label="Fechar"
         >
           <X className="w-5 h-5" />
         </button>

@@ -45,6 +45,7 @@ export default function Home() {
   const [checkoutAmount, setCheckoutAmount] = useState(0)
   const [isPaid, setIsPaid] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
+  const [mobilePreviewTab, setMobilePreviewTab] = useState<'form' | 'preview'>('form')
 
   const handleStart = () => {
     setShowLanding(false)
@@ -137,30 +138,56 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-[100dvh] bg-white text-gray-900">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-3 items-center">
-          <p className="text-xs font-semibold tracking-wider text-emerald-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold tracking-wider text-emerald-600 flex-shrink-0">
             LS - Soluções Digitais
           </p>
-          <h1 className="text-center text-sm md:text-base font-bold text-gray-900 uppercase tracking-tight">
+          <h1 className="hidden sm:block text-center text-sm md:text-base font-bold text-gray-900 uppercase tracking-tight truncate max-w-[180px] md:max-w-xs">
             CRIADOR-DE-CURRICULOS- HELP IA
           </h1>
-          <div className="flex justify-end items-center gap-3 text-sm text-gray-600">
-            {saveStatus === 'saving' && <span className="text-emerald-600 animate-pulse">{t('common.loading')}</span>}
-            {saveStatus === 'saved' && <span className="text-emerald-600">{t('common.saved') || 'Salvo'}</span>}
-            {saveStatus === 'error' && <span className="text-red-500">{t('common.error') || 'Erro'}</span>}
+          <div className="flex items-center gap-2 sm:gap-3 text-sm text-gray-600 flex-shrink-0">
+            {saveStatus === 'saving' && <span className="text-emerald-600 animate-pulse hidden sm:inline">{t('common.loading')}</span>}
+            {saveStatus === 'saved' && <span className="text-emerald-600 hidden sm:inline">{t('common.saved') || 'Salvo'}</span>}
+            {saveStatus === 'error' && <span className="text-red-500 hidden sm:inline">{t('common.error') || 'Erro'}</span>}
             <LanguageSelector />
-            <span>Etapa {currentStepIndex + 1} de {steps.length}</span>
+            <span className="hidden xs:inline">Etapa {currentStepIndex + 1} de {steps.length}</span>
           </div>
         </div>
       </header>
 
+      {/* Mobile tabs for form / preview */}
+      <div className="lg:hidden bg-gray-100 border-b border-gray-200 px-4 py-2 flex gap-2">
+        <button
+          onClick={() => setMobilePreviewTab('form')}
+          className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-colors ${
+            mobilePreviewTab === 'form'
+              ? 'bg-white text-emerald-700 shadow-sm'
+              : 'text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Formulário
+        </button>
+        <button
+          onClick={() => setMobilePreviewTab('preview')}
+          className={`flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-colors ${
+            mobilePreviewTab === 'preview'
+              ? 'bg-white text-emerald-700 shadow-sm'
+              : 'text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Preview
+        </button>
+      </div>
+
       {/* Main Content - Split Screen */}
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-73px)]">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100dvh-73px)]">
         {/* Left Panel - Form */}
-        <div className="w-full lg:w-1/2 p-6 lg:p-8 overflow-y-auto border-r border-gray-200 bg-gray-50">
+        <div className={`w-full lg:w-1/2 p-4 sm:p-6 lg:p-8 overflow-y-auto border-r border-gray-200 bg-gray-50 ${
+          mobilePreviewTab === 'form' ? 'block' : 'hidden lg:block'
+        }`}>
           <div className="max-w-2xl mx-auto">
             {/* Step Navigation */}
             <div className="mb-8">
@@ -228,9 +255,11 @@ export default function Home() {
         </div>
 
         {/* Right Panel - Live Preview */}
-        <div className="w-full lg:w-1/2 p-6 lg:p-8 overflow-y-auto bg-gray-100">
+        <div className={`w-full lg:w-1/2 p-4 sm:p-6 lg:p-8 overflow-y-auto bg-gray-100 ${
+          mobilePreviewTab === 'preview' ? 'block' : 'hidden lg:block'
+        }`}>
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-lg shadow-lg p-8" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}>
+            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)' }}>
               <ResumePreview 
                 resume={resume} 
                 draftExperience={draftExperience}

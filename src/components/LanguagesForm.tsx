@@ -72,7 +72,7 @@ const LanguagesForm = () => {
         {languages.map((language) => (
           <div
             key={language.id}
-            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm min-w-[200px]"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-sm w-full sm:w-auto sm:min-w-[200px]"
           >
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">

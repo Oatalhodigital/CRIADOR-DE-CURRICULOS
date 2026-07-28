@@ -40,3 +40,12 @@ prompt-windsurf-melhorias.md
 
 .vercel
 .env*.local
+
+# AI/agent & mobile audit artifacts
+.agents/
+.claude/
+mobile-audit/
+test-results/
+*.log
+tsconfig.tsbuildinfo
+

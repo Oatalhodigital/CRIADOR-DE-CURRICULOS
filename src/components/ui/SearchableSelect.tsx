@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 
 export interface SearchableSelectOption {
@@ -157,6 +157,45 @@ export default function SearchableSelect({
   }, [filtered.length]);
 
   const inputId = id ?? `searchable-select-${label ?? Math.random().toString(36).slice(2, 8)}`;
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+  useLayoutEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const updatePosition = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const maxHeight = 240;
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const canOpenBelow = spaceBelow >= maxHeight;
+      const canOpenAbove = spaceAbove >= maxHeight;
+
+      if (canOpenBelow || (!canOpenAbove && spaceBelow >= spaceAbove)) {
+        setDropdownStyle({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width,
+          maxHeight: Math.min(maxHeight, Math.max(120, spaceBelow)),
+        });
+      } else {
+        setDropdownStyle({
+          bottom: window.innerHeight - rect.top - window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width,
+          maxHeight: Math.min(maxHeight, Math.max(120, spaceAbove)),
+        });
+      }
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen]);
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -207,7 +246,8 @@ export default function SearchableSelect({
           ref={listRef}
           id={`${inputId}-listbox`}
           role="listbox"
-          className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto py-1"
+          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg overflow-y-auto py-1"
+          style={dropdownStyle}
         >
           {filtered.length === 0 ? (
             <div className="px-4 py-3 text-sm text-gray-500">Nenhuma opção encontrada</div>
