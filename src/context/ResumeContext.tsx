@@ -18,7 +18,7 @@ interface ResumeContextType {
   draftEducation: Partial<Education> | null;
   draftSkill: Partial<Skill> | null;
   setActiveTemplate: (template: 'classic' | 'modern' | 'minimalist') => void;
-  updatePersonalInfo: (info: PersonalInfo) => void;
+  updatePersonalInfo: (info: PersonalInfo | ((prev: PersonalInfo) => PersonalInfo)) => void;
   addExperience: (experience: Experience) => void;
   updateExperience: (id: string, experience: Experience) => void;
   removeExperience: (id: string) => void;
@@ -224,8 +224,11 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
   }, [resume, firebaseUser, firebaseReady, draftId]);
 
-  const updatePersonalInfo = (info: PersonalInfo) => {
-    setResume(prev => ({ ...prev, personalInfo: info }));
+  const updatePersonalInfo = (info: PersonalInfo | ((prev: PersonalInfo) => PersonalInfo)) => {
+    setResume(prev => ({
+      ...prev,
+      personalInfo: typeof info === 'function' ? info(prev.personalInfo) : info,
+    }));
   };
 
   const addExperience = (experience: Experience) => {

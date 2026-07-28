@@ -132,7 +132,7 @@ const PersonalInfoForm = () => {
   ];
 
   const handleChange = (field: keyof PersonalInfo, value: string) => {
-    updatePersonalInfo({ ...personalInfo, [field]: value });
+    updatePersonalInfo((prev) => ({ ...prev, [field]: value }));
   };
 
   const fetchWithTimeout = (url: string, timeoutMs = 8000): Promise<Response> => {

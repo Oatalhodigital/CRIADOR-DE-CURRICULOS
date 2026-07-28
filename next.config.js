@@ -1,6 +1,13 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.NEXT_PRIVATE_DIST_DIR
+    ? path.isAbsolute(process.env.NEXT_PRIVATE_DIST_DIR)
+      ? path.relative(__dirname, process.env.NEXT_PRIVATE_DIST_DIR)
+      : process.env.NEXT_PRIVATE_DIST_DIR
+    : '.next',
   images: {
     domains: [],
   },

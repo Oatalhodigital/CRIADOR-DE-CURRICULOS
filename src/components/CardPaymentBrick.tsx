@@ -118,21 +118,14 @@ const CardPaymentBrick = ({
             payer: { email },
           },
           callbacks: {
-            onFormMounted: (formError: any) => {
+            onReady: () => {
               if (!mountedRef.current) return;
               if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
               }
-              if (formError) {
-                finishedRef.current = true;
-                console.error('CardPaymentBrick: onFormMounted error', formError);
-                setError(formError.message || 'Erro ao montar formulário de cartão');
-                onErrorRef.current?.(formError);
-                setLoading(false);
-              } else {
-                setLoading(false);
-              }
+              console.log('[CardPaymentBrick] Brick pronto (onReady)');
+              setLoading(false);
             },
             onSubmit: async (formData: CardPaymentData) => {
               try {
@@ -162,6 +155,14 @@ const CardPaymentBrick = ({
             },
           },
         };
+
+        if (typeof settings.callbacks.onReady !== 'function' || typeof settings.callbacks.onError !== 'function') {
+          console.error('[CardPaymentBrick] callbacks obrigatórios ausentes', {
+            onReady: typeof settings.callbacks.onReady,
+            onError: typeof settings.callbacks.onError,
+          });
+          throw new Error('Callbacks onReady e/ou onError são obrigatórios para o Brick de cartão.');
+        }
 
         const createPromise = bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', settings).then((controller: any) => {
           if (!mountedRef.current || finishedRef.current) {

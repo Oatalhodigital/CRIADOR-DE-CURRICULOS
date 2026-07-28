@@ -22,6 +22,7 @@ const AIEnhanceButton = ({
 }: AIEnhanceButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
 
@@ -37,6 +38,7 @@ const AIEnhanceButton = ({
 
     setIsLoading(true);
     setError(null);
+    setInfo(null);
 
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
@@ -68,10 +70,12 @@ const AIEnhanceButton = ({
       if (requestId !== requestIdRef.current) return;
 
       console.error('Failed to enhance text:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido.');
       if (fallback) {
         onEnhanced(fallback());
+        setError(null);
+        setInfo('Sugestão gerada automaticamente.');
       } else {
+        setError(err instanceof Error ? err.message : 'Erro desconhecido.');
         onEnhanced(text);
       }
     } finally {
@@ -103,6 +107,7 @@ const AIEnhanceButton = ({
         <span className="text-xs">IA</span>
       </button>
       {error && <span className="text-xs text-red-500">{error}</span>}
+      {info && <span className="text-xs text-gray-500">{info}</span>}
     </div>
   );
 };

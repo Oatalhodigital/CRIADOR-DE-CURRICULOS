@@ -10,6 +10,7 @@ const SummaryForm = () => {
   const { resume, updateSummary } = useResume();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
 
@@ -33,6 +34,7 @@ const SummaryForm = () => {
 
     setIsGenerating(true);
     setError(null);
+    setInfo(null);
 
     const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -69,10 +71,11 @@ const SummaryForm = () => {
 
       if (requestId !== requestIdRef.current) return;
 
-      setError('A IA está com alta demanda. Usamos um resumo profissional pronto para você editar.');
       console.error('Failed to generate summary:', error);
       // Fallback: gera resumo a partir dos dados preenchidos
       updateSummary(generateProfessionalSummary(resume.experience, resume.skills, resume.experience[0]?.position));
+      setError(null);
+      setInfo('Sugestão gerada automaticamente. Você pode editar como quiser.');
     } finally {
       if (requestId === requestIdRef.current) {
         setIsGenerating(false);
@@ -98,6 +101,12 @@ const SummaryForm = () => {
       {error && (
         <div id="summary-error" role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
           {error}
+        </div>
+      )}
+
+      {info && (
+        <div role="status" className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+          {info}
         </div>
       )}
 
