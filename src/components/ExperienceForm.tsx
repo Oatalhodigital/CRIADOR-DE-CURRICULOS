@@ -111,24 +111,24 @@ const ExperienceForm = () => {
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2 min-w-0">
               <label className="block text-sm font-semibold text-gray-900">Data Início</label>
               <input
                 type="month"
                 value={newExperience.startDate}
                 onChange={(e) => setNewExperience({ ...newExperience, startDate: e.target.value })}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900"
+                className="w-full min-w-0 px-3 sm:px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="block text-sm font-semibold text-gray-900">Data Fim</label>
               <input
                 type="month"
                 value={newExperience.endDate}
                 onChange={(e) => setNewExperience({ ...newExperience, endDate: e.target.value })}
                 disabled={newExperience.current}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full min-w-0 px-3 sm:px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all duration-200 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
             </div>
           </div>

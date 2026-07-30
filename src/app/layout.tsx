@@ -5,6 +5,7 @@ import './globals.css'
 import { ResumeProvider } from '@/context/ResumeContext'
 import { LanguageProvider } from '@/context/LanguageContext'
 import { warnMissingEnvVars } from '@/lib/env-check'
+import GoogleAnalytics from '@/components/GoogleAnalytics'
 
 const inter = Inter({ subsets: ['latin'] })
 warnMissingEnvVars()
@@ -33,6 +34,7 @@ export default function RootLayout({
           </ResumeProvider>
         </LanguageProvider>
         <Analytics />
+        <GoogleAnalytics />
       </body>
     </html>
   )

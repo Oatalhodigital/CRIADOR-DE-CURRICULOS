@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: ['**/mobile-audit.spec.ts'],
+  // The mobile audit suite is slow (4 viewports, full funnel each).
+  // Run it on demand with: RUN_MOBILE_AUDIT=1 npx playwright test e2e/mobile-audit.spec.ts
+  testIgnore: process.env.RUN_MOBILE_AUDIT ? [] : ['**/mobile-audit.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

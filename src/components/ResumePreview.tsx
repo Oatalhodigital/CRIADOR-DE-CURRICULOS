@@ -4,6 +4,16 @@ import { Resume, Experience, Education, Skill } from '@/types/resume';
 import { useEffect, useRef, useState } from 'react';
 import { Lock, Shield } from 'lucide-react';
 
+const WATERMARK_TEXT = 'PRÉVIA · Criador de Currículo';
+
+const WATERMARK_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180">` +
+    `<text x="150" y="90" text-anchor="middle" transform="rotate(-30 150 90)" ` +
+    `font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700" ` +
+    `fill="#0f766e" fill-opacity="0.14" letter-spacing="1">${WATERMARK_TEXT}</text>` +
+    `</svg>`
+);
+
 interface ResumePreviewProps {
   resume: Resume;
   draftExperience?: Partial<Experience> | null;
@@ -219,38 +229,44 @@ const ResumePreview = ({
           </p>
         </div>
       )}
+
+      {!isPaid && (
+        <div
+          data-testid="preview-watermark"
+          className="absolute inset-0 z-10 pointer-events-none select-none print:hidden"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,${WATERMARK_SVG}")`,
+            backgroundRepeat: 'repeat',
+          }}
+          aria-hidden="true"
+        />
+      )}
       </div>
 
       {!isPaid && (
-        <>
-          <div
-            className="absolute inset-x-0 top-[45%] bottom-0 z-10 bg-gradient-to-b from-white/10 via-white/80 to-white/95 backdrop-blur-[3px] pointer-events-auto select-none"
-            aria-hidden="true"
-          />
-          <div className="absolute inset-x-0 top-[55%] z-20 flex flex-col items-center justify-start px-4 sm:px-6 pointer-events-auto select-text">
-            <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-xl w-[90%] max-w-xs text-center">
-              <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-6 h-6 text-emerald-600" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Preview parcial</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Veja a primeira parte do seu currículo. Finalize a compra para visualizar e baixar a versão completa.
-              </p>
-              <div className="text-2xl font-bold text-emerald-600 mb-2">
-                {price && price > 0 ? formatPrice(price) : 'Escolha seu plano'}
-              </div>
-              <p className="text-xs text-gray-500 mb-4">Pagamento único — sem assinatura</p>
-              {onContinueToPayment && (
-                <button
-                  onClick={onContinueToPayment}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors"
-                >
-                  Ir para pagamento
-                </button>
-              )}
+        <div className="mt-6 print:hidden">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-xl mx-auto max-w-sm text-center">
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-6 h-6 text-emerald-600" />
             </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Prévia com marca d&apos;água</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Veja seu currículo completo. Finalize a compra para baixar o PDF final, sem marca d&apos;água.
+            </p>
+            <div className="text-2xl font-bold text-emerald-600 mb-2">
+              {price && price > 0 ? formatPrice(price) : 'Escolha seu plano'}
+            </div>
+            <p className="text-xs text-gray-500 mb-4">Pagamento único — sem assinatura</p>
+            {onContinueToPayment && (
+              <button
+                onClick={onContinueToPayment}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors"
+              >
+                Ir para pagamento
+              </button>
+            )}
           </div>
-        </>
+        </div>
       )}
 
       {isPaid && paymentId && (

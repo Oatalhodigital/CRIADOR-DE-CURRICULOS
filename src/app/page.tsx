@@ -16,6 +16,9 @@ import PricingCards from '@/components/PricingCards'
 import CompletionModal from '@/components/CompletionModal'
 import LeadCaptureModal from '@/components/LeadCaptureModal'
 import CheckoutModal from '@/components/CheckoutModal'
+import Logo from '@/components/Logo'
+import StepsNav from '@/components/StepsNav'
+import { trackCheckoutStarted, trackLeadCaptured, trackStepCompleted } from '@/lib/gtag'
 import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'pricing'
@@ -53,6 +56,7 @@ export default function Home() {
 
   const handleLeadCaptureComplete = (leadData: { name: string; email: string; whatsapp: string }) => {
     setShowLeadCapture(false)
+    trackLeadCaptured()
     updatePersonalInfo({
       ...resume.personalInfo,
       fullName: leadData.name,
@@ -67,6 +71,7 @@ export default function Home() {
 
   const handleNext = () => {
     if (canGoNext) {
+      trackStepCompleted(currentStepIndex, steps[currentStepIndex].id)
       setCurrentStep(steps[currentStepIndex + 1].id)
     }
   }
@@ -87,9 +92,11 @@ export default function Home() {
   }
 
   const handleSelectPlan = (plan: 'single' | 'weekly' | 'monthly') => {
+    const planAmount = getPlanAmount(plan)
     setSelectedPlan(plan)
-    setCheckoutAmount(getPlanAmount(plan))
+    setCheckoutAmount(planAmount)
     setShowCheckout(true)
+    trackCheckoutStarted(plan, planAmount)
   }
 
   const handlePaymentSuccess = (paymentId?: string) => {
@@ -142,9 +149,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-          <p className="text-xs font-semibold tracking-wider text-emerald-600 flex-shrink-0">
-            LS - Soluções Digitais
-          </p>
+          <Logo size="md" className="flex-shrink-0" />
           <h1 className="hidden sm:block text-center text-sm md:text-base font-bold text-gray-900 uppercase tracking-tight truncate max-w-[180px] md:max-w-xs">
             CRIADOR-DE-CURRICULOS- HELP IA
           </h1>
@@ -191,38 +196,12 @@ export default function Home() {
           <div className="max-w-2xl mx-auto">
             {/* Step Navigation */}
             <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                {steps.map((step, index) => {
-                  const Icon = step.icon
-                  const isActive = step.id === currentStep
-                  const isCompleted = index < currentStepIndex
-                  
-                  return (
-                    <div key={step.id} className="flex items-center">
-                      <div className="flex flex-col items-center">
-                        <button
-                          onClick={() => setCurrentStep(step.id)}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                            isActive
-                              ? 'bg-emerald-600 text-white'
-                              : isCompleted
-                              ? 'bg-emerald-100 text-emerald-600'
-                              : 'bg-gray-200 text-gray-500'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </button>
-                        <span className={`text-xs mt-2 ${isActive ? 'text-emerald-600 font-semibold' : 'text-gray-500'}`}>
-                          {step.label}
-                        </span>
-                      </div>
-                      {index < steps.length - 1 && (
-                        <div className={`w-12 h-px mx-2 ${isCompleted ? 'bg-emerald-600' : 'bg-gray-300'}`} />
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+              <StepsNav
+                steps={steps}
+                currentStep={currentStep}
+                currentStepIndex={currentStepIndex}
+                onStepChange={setCurrentStep}
+              />
             </div>
 
             {/* Form Content */}

@@ -129,6 +129,13 @@ const SummaryForm = () => {
               context="Objetivo profissional para currículo"
               profession={resume.experience[0]?.position}
               onEnhanced={(enhanced: string) => updateSummary(enhanced)}
+              fallback={() =>
+                generateProfessionalSummary(
+                  resume.experience,
+                  resume.skills,
+                  resume.experience[0]?.position
+                )
+              }
             />
           </div>
         </div>

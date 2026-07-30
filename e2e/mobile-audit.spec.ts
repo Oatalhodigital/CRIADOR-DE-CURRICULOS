@@ -100,6 +100,69 @@ async function routeMocks(page: Page) {
   });
 }
 
+async function assertDateFieldsDoNotOverlap(page: Page, viewportName: string) {
+  const months = page.locator('input[type="month"]');
+  await expect(months).toHaveCount(2);
+
+  const start = await months.nth(0).boundingBox();
+  const end = await months.nth(1).boundingBox();
+  expect(start, 'start date field must be visible').not.toBeNull();
+  expect(end, 'end date field must be visible').not.toBeNull();
+
+  const overlapX = Math.min(start!.x + start!.width, end!.x + end!.width) - Math.max(start!.x, end!.x);
+  const overlapY = Math.min(start!.y + start!.height, end!.y + end!.height) - Math.max(start!.y, end!.y);
+  const overlaps = overlapX > 1 && overlapY > 1;
+
+  console.log(
+    `[audit] ${viewportName} date fields -> start(${Math.round(start!.x)},${Math.round(start!.y)} ${Math.round(start!.width)}x${Math.round(start!.height)}) ` +
+      `end(${Math.round(end!.x)},${Math.round(end!.y)} ${Math.round(end!.width)}x${Math.round(end!.height)}) overlap=${overlaps}`
+  );
+
+  expect(overlaps, 'Data Início and Data Fim must not overlap').toBe(false);
+
+  // Neither field may overflow the viewport horizontally.
+  const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  expect(start!.x + start!.width).toBeLessThanOrEqual(clientWidth + 1);
+  expect(end!.x + end!.width).toBeLessThanOrEqual(clientWidth + 1);
+}
+
+async function assertStepsBarScrollsIndependently(page: Page, viewportName: string) {
+  const bar = page.getByRole('tablist', { name: /Etapas do curr/i });
+  await expect(bar).toBeVisible();
+
+  const result = await bar.evaluate((el) => {
+    const container = el as HTMLElement;
+    const style = window.getComputedStyle(container);
+    const isScrollable = container.scrollWidth > container.clientWidth;
+    const pageScrollBefore = window.scrollY;
+    container.scrollLeft = container.scrollWidth;
+    const scrolledLeft = container.scrollLeft;
+    return {
+      isScrollable,
+      overflowX: style.overflowX,
+      overscrollBehaviorX: style.overscrollBehaviorX,
+      scrolledLeft,
+      pageScrollBefore,
+      pageScrollAfter: window.scrollY,
+    };
+  });
+
+  console.log(`[audit] ${viewportName} steps bar -> ${JSON.stringify(result)}`);
+
+  expect(result.overflowX).toBe('auto');
+  expect(result.overscrollBehaviorX).toBe('contain');
+  // Scrolling the bar must not move the page vertically.
+  expect(result.pageScrollAfter).toBe(result.pageScrollBefore);
+  if (result.isScrollable) {
+    expect(result.scrolledLeft).toBeGreaterThan(0);
+  }
+
+  // Reset so later screenshots are consistent.
+  await bar.evaluate((el) => {
+    (el as HTMLElement).scrollLeft = 0;
+  });
+}
+
 async function openDropdownAndCapture(page: Page, viewportName: string, fieldName: string, step: string) {
   const field = page.getByRole('combobox', { name: new RegExp(fieldName, 'i') }).or(page.locator('input[placeholder="Seu cargo na empresa"]'));
   await field.click();
@@ -125,6 +188,11 @@ for (const viewport of viewports) {
     await goNext(page);
     await capture(page, viewport.name, '03-experience');
 
+    // T1: date fields must stack instead of overlapping on narrow screens
+    await assertDateFieldsDoNotOverlap(page, viewport.name);
+    // T2: steps bar must scroll on its own without moving the page
+    await assertStepsBarScrollsIndependently(page, viewport.name);
+
     // Switch to preview tab to capture resume preview on mobile
     if (viewport.width < 1024) {
       await page.getByRole('button', { name: 'Preview' }).click();
@@ -139,6 +207,8 @@ for (const viewport of viewports) {
     await fillExperience(page);
     await goNext(page);
     await capture(page, viewport.name, '05-education');
+
+    await assertDateFieldsDoNotOverlap(page, viewport.name);
 
     await fillEducation(page);
     await goNext(page);

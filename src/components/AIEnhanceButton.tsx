@@ -70,13 +70,15 @@ const AIEnhanceButton = ({
       if (requestId !== requestIdRef.current) return;
 
       console.error('Failed to enhance text:', err);
-      if (fallback) {
-        onEnhanced(fallback());
+      const suggestion = fallback?.();
+      if (suggestion && suggestion.trim()) {
+        onEnhanced(suggestion);
         setError(null);
         setInfo('Sugestão gerada automaticamente.');
       } else {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido.');
         onEnhanced(text);
+        setError(null);
+        setInfo('A IA está indisponível agora. Você pode editar o texto manualmente.');
       }
     } finally {
       if (requestId === requestIdRef.current) {

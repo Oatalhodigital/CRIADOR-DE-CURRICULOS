@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Clock, CheckCircle, AlertCircle, Download, Mail } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
 import CardPaymentBrick, { CardPaymentData } from './CardPaymentBrick';
+import { trackPurchase } from '@/lib/gtag';
 
 interface PaymentData {
   id: string;
@@ -125,6 +126,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
   const pollCountRef = useRef(0);
   const isMountedRef = useRef(true);
+  const purchaseTrackedRef = useRef(false);
 
   const resetPaymentState = () => {
     setPaymentData(null);
@@ -135,6 +137,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setEmailSent(false);
     setDeliveryError(null);
     pollCountRef.current = 0;
+    purchaseTrackedRef.current = false;
   };
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -184,6 +187,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setDeliveryError(null);
       let lastError = '';
 
+      if (!purchaseTrackedRef.current) {
+        purchaseTrackedRef.current = true;
+        trackPurchase({
+          transactionId: paymentId,
+          value: amount,
+          paymentMethod,
+          plan,
+        });
+      }
+
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const res = await fetchWithTimeout(
@@ -232,7 +245,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         onPaymentSuccess(paymentId);
       }
     },
-    [resume, onPaymentSuccess]
+    [resume, onPaymentSuccess, amount, paymentMethod, plan]
   );
 
   const createPayment = useCallback(async () => {
