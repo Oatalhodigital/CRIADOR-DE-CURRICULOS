@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles, FileText, Zap, X, Check, AlertTriangle, ChevronRi
 import { useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import LanguageSelector from './LanguageSelector';
+import Logo from './Logo';
 
 interface LandingPageProps {
   onStart: () => void;
@@ -40,9 +41,7 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
     <div className="min-h-[100dvh] bg-white text-gray-900 font-sans overflow-x-hidden">
       {/* Header */}
       <header className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 md:px-12 py-4 sm:py-6 border-b border-gray-200 bg-white sticky top-0 z-50">
-        <div className="text-emerald-600 font-semibold text-sm md:text-base">
-          {t('landing.brand')}
-        </div>
+        <Logo size="md" className="flex-shrink-0" />
         <h1 className="hidden sm:block text-center text-sm md:text-lg font-bold tracking-tight text-gray-900 uppercase truncate max-w-[150px] md:max-w-xs">
           {t('landing.title')}
         </h1>

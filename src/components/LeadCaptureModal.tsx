@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { User, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react'
 import { auth } from '@/lib/firebase'
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth'
 
 interface LeadCaptureModalProps {
   isOpen: boolean
@@ -21,8 +21,83 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
   const mountedRef = useRef(true)
   const resolvedRef = useRef(false)
+
+  const STORAGE_KEY = 'leadCaptureForm'
+
+  const getUserMessageForAuthError = (code: string, message: string): string => {
+    if (code === 'auth/network-request-failed') {
+      return 'Falha de conexão com o Google. Verifique sua internet e tente novamente.'
+    }
+    if (code === 'auth/unauthorized-domain') {
+      return 'Este domínio não está autorizado no Firebase Auth. Verifique os domínios autorizados no Console do Firebase.'
+    }
+    if (code === 'auth/configuration-not-found' || code === 'auth/operation-not-allowed') {
+      return 'Login com Google não está habilitado ou foi cancelado. Verifique o Console do Firebase.'
+    }
+    if (code === 'auth/web-storage-unsupported' || code === 'auth/storage-unsupported') {
+      return 'Cookies ou armazenamento local estão desabilitados. Habilite-os para fazer login com o Google.'
+    }
+    if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+      return 'Popup de login bloqueado ou fechado. Tente novamente.'
+    }
+    if (message.toLowerCase().includes('timeout')) {
+      return 'Tempo esgotado ao conectar com o Google. Tente novamente.'
+    }
+    return 'Erro ao fazer login com Google. Tente novamente.'
+  }
+
   useEffect(() => {
     mountedRef.current = true
+
+    const restoreFromStorage = () => {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed.name) setName(parsed.name)
+          if (parsed.email) setEmail(parsed.email)
+          if (parsed.whatsapp) setWhatsapp(parsed.whatsapp)
+          if (parsed.consentMarketing) setConsentMarketing(parsed.consentMarketing)
+        }
+      } catch (e) {
+        console.error('LeadCaptureModal: failed to restore form from sessionStorage', e)
+      }
+    }
+
+    const handleRedirectResult = async () => {
+      if (!auth) return
+      try {
+        const result = await getRedirectResult(auth)
+        if (!mountedRef.current) return
+
+        if (result?.user) {
+          const googleName = result.user.displayName || ''
+          const googleEmail = result.user.email || ''
+
+          setName((prev) => googleName || prev)
+          setEmail((prev) => googleEmail || prev)
+
+          const saved = sessionStorage.getItem(STORAGE_KEY)
+          let restoredWhatsapp = ''
+          if (saved) {
+            const parsed = JSON.parse(saved)
+            restoredWhatsapp = parsed.whatsapp || ''
+            sessionStorage.removeItem(STORAGE_KEY)
+          }
+          setWhatsapp((prev) => prev || restoredWhatsapp)
+        }
+      } catch (err: any) {
+        if (!mountedRef.current) return
+        const code = err?.code || ''
+        const message = err?.message || ''
+        setError(getUserMessageForAuthError(code, message))
+        console.error('LeadCaptureModal: redirect result error', { code, message, timestamp: new Date().toISOString() })
+      }
+    }
+
+    restoreFromStorage()
+    handleRedirectResult()
+
     return () => {
       mountedRef.current = false
     }
@@ -127,64 +202,23 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
     setGoogleLoading(true)
     setError('')
-    resolvedRef.current = false
-
-    const provider = new GoogleAuthProvider()
-    provider.setCustomParameters({ prompt: 'select_account' })
-
-    const timeoutId = setTimeout(() => {
-      if (mountedRef.current && !resolvedRef.current) {
-        setGoogleLoading(false)
-        setError('A conexão com o Google está demorando. Você pode continuar preenchendo manualmente.')
-      }
-    }, 10000)
 
     try {
-      const credential = await signInWithPopup(auth, provider)
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ name, email, whatsapp, consentMarketing })
+      )
 
-      resolvedRef.current = true
-      clearTimeout(timeoutId)
-
-      if (mountedRef.current) {
-        setGoogleLoading(false)
-        setError('')
-        if (credential && 'user' in credential) {
-          setName(credential.user.displayName || name)
-          setEmail(credential.user.email || email)
-        }
-      }
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: 'select_account' })
+      await signInWithRedirect(auth, provider)
     } catch (err: any) {
-      resolvedRef.current = true
-      clearTimeout(timeoutId)
-
       if (mountedRef.current) {
         setGoogleLoading(false)
-
         const code = err?.code || ''
         const message = err?.message || ''
-
-        let userMessage = 'Erro ao fazer login com Google. Tente novamente.'
-        if (code === 'auth/unauthorized-domain') {
-          userMessage = 'Este domínio não está autorizado no Firebase Auth. Verifique os domínios autorizados no Console do Firebase.'
-        } else if (
-          code === 'auth/configuration-not-found' ||
-          code === 'auth/operation-not-allowed'
-        ) {
-          userMessage =
-            'Login com Google não está habilitado ou foi cancelado. Verifique o Console do Firebase.'
-        } else if (
-          code === 'auth/web-storage-unsupported' ||
-          code === 'auth/storage-unsupported'
-        ) {
-          userMessage = 'Cookies ou armazenamento local estão desabilitados. Habilite-os para fazer login com o Google.'
-        } else if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
-          userMessage = 'Popup de login bloqueado ou fechado. Permitua popups para este site.'
-        } else if (message.includes('timeout')) {
-          userMessage = 'Tempo esgotado ao conectar com o Google. Tente novamente.'
-        }
-
-        setError(userMessage)
-        console.error('LeadCaptureModal: Google login error', { code, message, timestamp: new Date().toISOString() })
+        setError(getUserMessageForAuthError(code, message))
+        console.error('LeadCaptureModal: redirect login error', { code, message, timestamp: new Date().toISOString() })
       }
     }
   }

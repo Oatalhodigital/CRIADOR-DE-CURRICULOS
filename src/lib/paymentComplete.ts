@@ -8,7 +8,7 @@ import {
   insertOrderPostgres,
   insertFunnelEventPostgres,
 } from './postgres';
-import { getAppUrl } from './email';
+import { getAppUrl, sendPaymentConfirmationEmail } from './email';
 import { Resume } from '@/types/resume';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'payment'): Promise<T> =>
@@ -127,16 +127,39 @@ export async function finalizePaymentDelivery({
 
   const downloadUrl = `${getAppUrl()}/api/download/${mpPaymentId}`;
 
+  let emailSent = false;
+  let emailError: string | null = null;
+
+  if (payerEmail) {
+    try {
+      const emailResult = await sendPaymentConfirmationEmail(
+        payerEmail,
+        mpPaymentId,
+        order?.plan || 'unknown',
+        downloadUrl
+      );
+      emailSent = emailResult.success;
+      if (!emailResult.success && emailResult.error) {
+        emailError = emailResult.error;
+        console.error('[paymentComplete] e-mail not sent', { error: emailResult.error, mpPaymentId, payerEmail });
+      }
+    } catch (err) {
+      console.error('[paymentComplete] unexpected e-mail error', { err, mpPaymentId, payerEmail });
+      emailError = err instanceof Error ? err.message : 'Erro inesperado ao enviar e-mail';
+    }
+  }
+
   await insertFunnelEventPostgres({
     lead_firestore_id: order?.lead_firestore_id || order?.resume_firestore_id || null,
     event_name: 'payment_delivered',
-    metadata: { mp_payment_id: mpPaymentId, email_sent: false, plan: order?.plan },
+    metadata: { mp_payment_id: mpPaymentId, email_sent: emailSent, email_error: emailError, plan: order?.plan },
   });
 
   return {
     success: true,
     downloadUrl,
-    emailSent: false,
+    emailSent,
+    emailError,
     payerEmail,
     downloadsAllowed: order?.downloads_allowed || 1,
     downloadsUsed: order?.downloads_used || 0,
