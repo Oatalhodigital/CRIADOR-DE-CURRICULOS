@@ -6,6 +6,7 @@ import { ResumeProvider } from '@/context/ResumeContext'
 import { LanguageProvider } from '@/context/LanguageContext'
 import { warnMissingEnvVars } from '@/lib/env-check'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
+import MetaPixel from '@/components/MetaPixel'
 
 const inter = Inter({ subsets: ['latin'] })
 warnMissingEnvVars()
@@ -35,6 +36,7 @@ export default function RootLayout({
         </LanguageProvider>
         <Analytics />
         <GoogleAnalytics />
+        <MetaPixel />
       </body>
     </html>
   )

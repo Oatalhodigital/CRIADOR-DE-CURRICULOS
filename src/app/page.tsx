@@ -19,6 +19,7 @@ import CheckoutModal from '@/components/CheckoutModal'
 import Logo from '@/components/Logo'
 import StepsNav from '@/components/StepsNav'
 import { trackCheckoutStarted, trackLeadCaptured, trackStepCompleted } from '@/lib/gtag'
+import { trackMetaInitiateCheckout, trackMetaLead, trackMetaStepCompleted } from '@/lib/metaPixel'
 import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'pricing'
@@ -57,6 +58,7 @@ export default function Home() {
   const handleLeadCaptureComplete = (leadData: { name: string; email: string; whatsapp: string }) => {
     setShowLeadCapture(false)
     trackLeadCaptured()
+    trackMetaLead()
     updatePersonalInfo({
       ...resume.personalInfo,
       fullName: leadData.name,
@@ -72,6 +74,7 @@ export default function Home() {
   const handleNext = () => {
     if (canGoNext) {
       trackStepCompleted(currentStepIndex, steps[currentStepIndex].id)
+      trackMetaStepCompleted(currentStepIndex, steps[currentStepIndex].id)
       setCurrentStep(steps[currentStepIndex + 1].id)
     }
   }
@@ -97,6 +100,7 @@ export default function Home() {
     setCheckoutAmount(planAmount)
     setShowCheckout(true)
     trackCheckoutStarted(plan, planAmount)
+    trackMetaInitiateCheckout(plan, planAmount)
   }
 
   const handlePaymentSuccess = (paymentId?: string) => {

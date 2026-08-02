@@ -5,6 +5,7 @@ import { X, Clock, CheckCircle, AlertCircle, Download, Mail } from 'lucide-react
 import { useResume } from '../context/ResumeContext';
 import CardPaymentBrick, { CardPaymentData } from './CardPaymentBrick';
 import { trackPurchase } from '@/lib/gtag';
+import { trackMetaPurchase } from '@/lib/metaPixel';
 
 interface PaymentData {
   id: string;
@@ -190,6 +191,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (!purchaseTrackedRef.current) {
         purchaseTrackedRef.current = true;
         trackPurchase({
+          transactionId: paymentId,
+          value: amount,
+          paymentMethod,
+          plan,
+        });
+        trackMetaPurchase({
           transactionId: paymentId,
           value: amount,
           paymentMethod,

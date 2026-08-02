@@ -9,6 +9,7 @@ import {
   insertFunnelEventPostgres,
 } from './postgres';
 import { getAppUrl, sendPaymentConfirmationEmail } from './email';
+import { trackMetaPurchaseServerSide } from './metaConversionsApi';
 import { Resume } from '@/types/resume';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'payment'): Promise<T> =>
@@ -153,6 +154,21 @@ export async function finalizePaymentDelivery({
     lead_firestore_id: order?.lead_firestore_id || order?.resume_firestore_id || null,
     event_name: 'payment_delivered',
     metadata: { mp_payment_id: mpPaymentId, email_sent: emailSent, email_error: emailError, plan: order?.plan },
+  });
+
+  const amountReais = order?.amount_cents ? order.amount_cents / 100 : 0;
+  const userEmail = payerEmail || resume?.personalInfo?.email;
+  const userPhone = resume?.personalInfo?.phone;
+
+  // Fire-and-forget: a falha do CAPI nao pode bloquear o download.
+  void trackMetaPurchaseServerSide({
+    paymentId: mpPaymentId,
+    value: amountReais,
+    plan: order?.plan,
+    paymentMethod: order?.payment_method,
+    email: userEmail,
+    phone: userPhone,
+    sourceUrl: getAppUrl(),
   });
 
   return {
