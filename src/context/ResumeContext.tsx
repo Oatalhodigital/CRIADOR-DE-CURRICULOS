@@ -5,6 +5,7 @@ import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Resume, PersonalInfo, Experience, Education, Skill, Language } from '@/types/resume';
 import { auth, db } from '@/lib/firebase';
+import { resolveRedirectOutcome } from '@/lib/authRedirect';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -89,6 +90,27 @@ export const ResumeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setFirebaseUser(user);
+        setFirebaseReady(true);
+        return;
+      }
+
+      if (authAttemptedRef.current) {
+        setFirebaseReady(true);
+        return;
+      }
+
+      // Nunca cair no login anônimo antes de resolver um possível retorno de
+      // signInWithRedirect: as duas chamadas competiam pela mesma sessão e o
+      // anônimo sobrescrevia o login do Google de forma intermitente.
+      const outcome = await resolveRedirectOutcome();
+      if (outcome.status === 'success') {
+        console.log('[auth] redirect resolved before anonymous fallback', { uid: outcome.user.uid });
+        setFirebaseUser(outcome.user);
+        setFirebaseReady(true);
+        return;
+      }
+      if (auth?.currentUser) {
+        setFirebaseUser(auth.currentUser);
         setFirebaseReady(true);
         return;
       }

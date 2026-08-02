@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect } from 'react'
 import { useResume } from '@/context/ResumeContext'
 import { useLanguage } from '@/context/LanguageContext'
 import LanguageSelector from '@/components/LanguageSelector'
@@ -23,6 +23,13 @@ import { trackMetaInitiateCheckout, trackMetaLead, trackMetaStepCompleted } from
 import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'pricing'
+
+const FUNNEL_STATE_KEY = 'funnelState'
+const VALID_STEPS: Step[] = ['personal', 'experience', 'education', 'skills', 'languages', 'summary', 'pricing']
+
+// useLayoutEffect no cliente evita o flash da landing page ao restaurar o
+// estado do funil (o navegador pinta apenas depois da restauracao).
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 const useTranslatedSteps = () => {
   const { t } = useLanguage();
@@ -50,6 +57,32 @@ export default function Home() {
   const [isPaid, setIsPaid] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const [mobilePreviewTab, setMobilePreviewTab] = useState<'form' | 'preview'>('form')
+
+  // O login com Google usa signInWithRedirect, que recarrega a pagina inteira.
+  // Sem persistir a etapa do funil o usuario voltava sempre para a landing page.
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(FUNNEL_STATE_KEY)
+      if (!saved) return
+      const parsed = JSON.parse(saved)
+      if (typeof parsed.showLanding === 'boolean') setShowLanding(parsed.showLanding)
+      if (typeof parsed.showLeadCapture === 'boolean') setShowLeadCapture(parsed.showLeadCapture)
+      if (VALID_STEPS.includes(parsed.currentStep)) setCurrentStep(parsed.currentStep)
+    } catch (e) {
+      console.error('[funnel] failed to restore state', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        FUNNEL_STATE_KEY,
+        JSON.stringify({ showLanding, showLeadCapture, currentStep })
+      )
+    } catch (e) {
+      console.warn('[funnel] failed to persist state', e)
+    }
+  }, [showLanding, showLeadCapture, currentStep])
 
   const handleStart = () => {
     setShowLanding(false)

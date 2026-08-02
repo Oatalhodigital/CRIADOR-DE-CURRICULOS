@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { User, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react'
 import { auth } from '@/lib/firebase'
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth'
+import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth'
+import {
+  clearGoogleLoginPending,
+  isGoogleLoginPending,
+  markGoogleLoginPending,
+  resolveRedirectOutcome,
+} from '@/lib/authRedirect'
 
 interface LeadCaptureModalProps {
   isOpen: boolean
@@ -66,33 +72,47 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
     const handleRedirectResult = async () => {
       if (!auth) return
-      try {
-        const result = await getRedirectResult(auth)
-        if (!mountedRef.current) return
 
-        if (result?.user) {
-          const googleName = result.user.displayName || ''
-          const googleEmail = result.user.email || ''
+      const wasPending = isGoogleLoginPending()
+      if (wasPending) setGoogleLoading(true)
 
-          setName((prev) => googleName || prev)
-          setEmail((prev) => googleEmail || prev)
+      const outcome = await resolveRedirectOutcome()
+      const timestamp = new Date().toISOString()
 
-          const saved = sessionStorage.getItem(STORAGE_KEY)
-          let restoredWhatsapp = ''
-          if (saved) {
-            const parsed = JSON.parse(saved)
-            restoredWhatsapp = parsed.whatsapp || ''
-            sessionStorage.removeItem(STORAGE_KEY)
-          }
-          setWhatsapp((prev) => prev || restoredWhatsapp)
-        }
-      } catch (err: any) {
-        if (!mountedRef.current) return
-        const code = err?.code || ''
-        const message = err?.message || ''
-        setError(getUserMessageForAuthError(code, message))
-        console.error('LeadCaptureModal: redirect result error', { code, message, timestamp: new Date().toISOString() })
+      if (!mountedRef.current) return
+      setGoogleLoading(false)
+
+      if (outcome.status === 'success') {
+        clearGoogleLoginPending()
+        resolvedRef.current = true
+        console.log('[auth redirect] success', { hasEmail: Boolean(outcome.user.email), timestamp })
+
+        // O formulário já foi restaurado por restoreFromStorage(); aqui apenas
+        // sobrescrevemos nome/e-mail com os dados vindos do Google.
+        setName((prev) => outcome.user.displayName || prev)
+        setEmail((prev) => outcome.user.email || prev)
+        return
       }
+
+      if (outcome.status === 'error') {
+        // O progresso do formulário permanece em sessionStorage para que o
+        // usuário possa tentar novamente sem perder nada.
+        clearGoogleLoginPending()
+        console.error('[auth redirect] error', { code: outcome.code, timestamp })
+        setError(getUserMessageForAuthError(outcome.code, outcome.message))
+        return
+      }
+
+      if (wasPending) {
+        // Voltou do Google sem credencial: típico de login cancelado na tela de
+        // seleção de conta. Não é um erro do site, apenas informamos.
+        clearGoogleLoginPending()
+        console.log('[auth redirect] returned without credential (likely cancelled)', { timestamp })
+        setError('Login com Google não foi concluído. Preencha seus dados abaixo ou tente novamente.')
+        return
+      }
+
+      console.log('[auth redirect] no pending redirect; normal page load', { timestamp })
     }
 
     restoreFromStorage()
@@ -171,6 +191,11 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       }
 
       console.log('LeadCaptureModal: lead saved synchronously', { email })
+      try {
+        sessionStorage.removeItem(STORAGE_KEY)
+      } catch {
+        /* ignore */
+      }
       onComplete({ name, email, whatsapp })
     } catch (err) {
       clearTimeout(timeoutId)
@@ -208,17 +233,19 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
         STORAGE_KEY,
         JSON.stringify({ name, email, whatsapp, consentMarketing })
       )
+      markGoogleLoginPending()
 
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
       await signInWithRedirect(auth, provider)
     } catch (err: any) {
+      clearGoogleLoginPending()
       if (mountedRef.current) {
         setGoogleLoading(false)
         const code = err?.code || ''
         const message = err?.message || ''
         setError(getUserMessageForAuthError(code, message))
-        console.error('LeadCaptureModal: redirect login error', { code, message, timestamp: new Date().toISOString() })
+        console.error('[auth redirect] start failed', { code, timestamp: new Date().toISOString() })
       }
     }
   }
