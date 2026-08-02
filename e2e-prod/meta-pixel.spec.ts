@@ -54,13 +54,22 @@ test.describe('Meta Pixel in production', () => {
       }
     });
 
-    await page.goto('https://www.xn--currculorapidocomia-o1b.com.br', { waitUntil: 'load' });
+    const response = await page.goto('https://www.xn--currculorapidocomia-o1b.com.br', {
+      waitUntil: 'load',
+    });
+    const html = (await response?.text()) || '';
 
-    if (scriptRequests.length === 0) {
+    if (!/connect\.facebook\.net\/en_US\/fbevents\.js/.test(html)) {
       test.skip(true, 'NEXT_PUBLIC_META_PIXEL_ID not configured on production');
     }
 
-    const pageView = networkHits.find((h) => h.event === 'PageView');
-    expect(pageView, 'PageView Pixel hit should fire').not.toBeUndefined();
+    // O Pixel usa strategy="afterInteractive": o script e o primeiro hit saem
+    // depois do evento load, por isso a espera explicita.
+    await expect
+      .poll(() => scriptRequests.length, { timeout: 30000 })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => networkHits.filter((h) => h.event === 'PageView').length, { timeout: 30000 })
+      .toBeGreaterThan(0);
   });
 });
