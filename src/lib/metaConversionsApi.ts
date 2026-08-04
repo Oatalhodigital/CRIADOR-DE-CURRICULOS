@@ -87,6 +87,10 @@ export async function trackMetaPurchaseServerSide({
   email,
   phone,
   sourceUrl,
+  fbp,
+  fbc,
+  clientIp,
+  userAgent,
 }: {
   paymentId: string;
   value: number;
@@ -95,6 +99,10 @@ export async function trackMetaPurchaseServerSide({
   email?: string;
   phone?: string;
   sourceUrl?: string;
+  fbp?: string;
+  fbc?: string;
+  clientIp?: string;
+  userAgent?: string;
 }) {
   const event: MetaEvent = {
     event_name: 'Purchase',
@@ -105,6 +113,12 @@ export async function trackMetaPurchaseServerSide({
     user_data: {
       em: hashEmail(email),
       ph: phone ? hashPhone(phone) : undefined,
+      // fbp/fbc, IP e user agent elevam a qualidade da correspondência do evento
+      // e permitem atribuir a venda ao clique no anúncio.
+      fbp,
+      fbc,
+      client_ip_address: clientIp,
+      client_user_agent: userAgent,
     },
     custom_data: {
       value,

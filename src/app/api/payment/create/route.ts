@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { insertOrderPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
+import { getNotificationUrl } from '@/lib/mercadoPago';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 15000, label = 'payment'): Promise<T> =>
   Promise.race([
@@ -38,6 +39,8 @@ export async function POST(request: NextRequest) {
           payment_method_id: 'pix',
           payer: { email },
           external_reference: leadId || `payment-${Date.now()}`,
+          notification_url: getNotificationUrl(),
+          metadata: { lead_id: leadId || null, plan: plan || 'unknown' },
         },
       }),
       15000,
@@ -46,10 +49,11 @@ export async function POST(request: NextRequest) {
 
     const transactionData = result.point_of_interaction?.transaction_data;
 
-    // Analytics complementar em Postgres (não bloqueia o fluxo principal)
+    // Precisa ser aguardado: em serverless a execução é congelada assim que a
+    // resposta é devolvida, e a escrita ficaria pela metade.
     try {
       const amountCents = Math.round(amount * 100);
-      insertOrderPostgres({
+      await insertOrderPostgres({
         lead_firestore_id: leadId || null,
         resume_firestore_id: leadId || null,
         plan: plan || 'unknown',
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
         mp_payment_id: result.id ? String(result.id) : null,
         status: result.status || 'pending',
       });
-      insertFunnelEventPostgres({
+      await insertFunnelEventPostgres({
         lead_firestore_id: leadId || null,
         event_name: 'checkout_started',
         metadata: { plan, amount_cents: amountCents, payment_method: 'pix' },

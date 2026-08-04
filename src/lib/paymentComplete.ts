@@ -9,6 +9,7 @@ import {
   insertFunnelEventPostgres,
 } from './postgres';
 import { getAppUrl, sendPaymentConfirmationEmail } from './email';
+import { getPaymentStatusMessage, normalizePaymentMethod } from './mercadoPago';
 import { trackMetaPurchaseServerSide } from './metaConversionsApi';
 import { Resume } from '@/types/resume';
 
@@ -20,14 +21,13 @@ const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'payment'): Pr
     ),
   ]);
 
-async function getMercadoPagoPaymentStatus(mpPaymentId: string): Promise<string | null> {
+async function getMercadoPagoPayment(mpPaymentId: string): Promise<any | null> {
   const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
   if (!accessToken) return null;
   try {
     const client = new MercadoPagoConfig({ accessToken });
     const payment = new Payment(client);
-    const result = (await withTimeout(payment.get({ id: mpPaymentId }), 10000, 'payment')) as any;
-    return result?.status || null;
+    return (await withTimeout(payment.get({ id: mpPaymentId }), 10000, 'payment')) as any;
   } catch (err) {
     console.error('[paymentComplete] Mercado Pago get error', err);
     return null;
@@ -39,16 +39,22 @@ async function ensureApprovedOrder(mpPaymentId: string): Promise<{ order: any; s
   let status = order?.status;
 
   if (!order) {
-    const mpStatus = await getMercadoPagoPaymentStatus(mpPaymentId);
-    if (!mpStatus) return { error: 'Pagamento não encontrado.', statusCode: 404 };
-    status = mpStatus;
-    if (status !== 'approved') return { error: 'Pagamento ainda não foi aprovado.', statusCode: 402 };
+    // O pedido pode não ter sido gravado ainda (webhook mais rápido que a rota
+    // de criação). Reconstrói a partir dos dados reais do Mercado Pago para não
+    // registrar valor 0 nem método errado.
+    const mpPayment = await getMercadoPagoPayment(mpPaymentId);
+    if (!mpPayment?.status) return { error: 'Pagamento não encontrado.', statusCode: 404 };
+    status = mpPayment.status;
+    if (status !== 'approved') {
+      return { error: getPaymentStatusMessage(status, mpPayment.status_detail), statusCode: 402 };
+    }
+    const leadId = mpPayment.external_reference ? String(mpPayment.external_reference) : null;
     await insertOrderPostgres({
-      lead_firestore_id: null,
-      resume_firestore_id: null,
-      plan: 'unknown',
-      amount_cents: 0,
-      payment_method: 'pix',
+      lead_firestore_id: leadId,
+      resume_firestore_id: leadId,
+      plan: mpPayment.metadata?.plan || 'unknown',
+      amount_cents: Math.round(Number(mpPayment.transaction_amount || 0) * 100),
+      payment_method: normalizePaymentMethod(mpPayment.payment_type_id),
       mp_payment_id: mpPaymentId,
       status,
     });
@@ -56,13 +62,14 @@ async function ensureApprovedOrder(mpPaymentId: string): Promise<{ order: any; s
   }
 
   if (status !== 'approved') {
-    const mpStatus = await getMercadoPagoPaymentStatus(mpPaymentId);
-    if (mpStatus === 'approved') {
-      status = 'approved';
-      await updateOrderStatusPostgres(mpPaymentId, 'approved');
-    } else if (mpStatus) {
+    const mpPayment = await getMercadoPagoPayment(mpPaymentId);
+    const mpStatus = mpPayment?.status;
+    if (mpStatus) {
       status = mpStatus;
       await updateOrderStatusPostgres(mpPaymentId, mpStatus);
+      if (mpStatus !== 'approved') {
+        return { error: getPaymentStatusMessage(mpStatus, mpPayment?.status_detail), statusCode: 402 };
+      }
     }
   }
 
@@ -103,14 +110,23 @@ async function resolvePayerEmail(order: any, providedEmail?: string): Promise<st
   return null;
 }
 
+export type MetaClientContext = {
+  fbp?: string;
+  fbc?: string;
+  clientIp?: string;
+  userAgent?: string;
+};
+
 export async function finalizePaymentDelivery({
   mpPaymentId,
   resume,
   email,
+  metaContext,
 }: {
   mpPaymentId: string;
   resume?: Resume;
   email?: string;
+  metaContext?: MetaClientContext;
 }) {
   const approved = await ensureApprovedOrder(mpPaymentId);
   if ('error' in approved) return approved;
@@ -169,6 +185,7 @@ export async function finalizePaymentDelivery({
     email: userEmail,
     phone: userPhone,
     sourceUrl: getAppUrl(),
+    ...metaContext,
   });
 
   return {

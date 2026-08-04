@@ -209,4 +209,78 @@ test.describe('Checkout', () => {
     await expect(page.locator('text=Limite de downloads atingido.')).toHaveCount(0);
     await expect(page.getByText('Erro ao baixar')).not.toBeVisible();
   });
+
+  test('card rejection shows a readable reason and sends the device id', async ({ page }) => {
+    const submitScript = mockMercadoPagoScript(`
+      setTimeout(() => settings.callbacks.onReady && settings.callbacks.onReady(), 80);
+      window.__mpSubmit = () =>
+        settings.callbacks.onSubmit({
+          token: 'card-token-test',
+          payment_method_id: 'master',
+          installments: 1,
+          payer: { email: 'teste@exemplo.com' },
+        });
+      return { unmount: () => {} };
+    `);
+
+    // O SDK v2 real popula essa variável; aqui simulamos antes de qualquer script.
+    await page.addInitScript(() => {
+      (window as any).MP_DEVICE_SESSION_ID = 'device-session-test';
+    });
+    await page.unroute('https://sdk.mercadopago.com/js/v2*');
+    await page.route('https://sdk.mercadopago.com/js/v2*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/javascript', body: submitScript });
+    });
+
+    await page.route('**/api/payment/create', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'pix-unused', qr_code: 'pix-code', qr_code_base64: 'base64' }),
+      });
+    });
+
+    let cardRequestBody: any = null;
+    await page.route('**/api/payment/card', async (route) => {
+      cardRequestBody = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'card-rejected-1',
+          status: 'rejected',
+          status_detail: 'cc_rejected_high_risk',
+          message:
+            'Pagamento recusado pelo sistema antifraude do Mercado Pago. Tente outro cartão ou pague com PIX (aprovação na hora).',
+        }),
+      });
+    });
+
+    await startOnApp(page);
+    await fillLeadCapture(page);
+    await fillPersonalInfo(page);
+    await goNext(page);
+    await fillExperience(page);
+    await goNext(page);
+    await goNext(page);
+    await fillSkills(page);
+    await goNext(page);
+    await goNext(page);
+    await goNext(page);
+
+    await selectPlan(page, 'Básico');
+    await page.getByRole('button', { name: 'Cartão' }).click();
+    await page.waitForFunction(() => typeof (window as any).__mpSubmit === 'function', null, {
+      timeout: 15000,
+    });
+    await expect(page.getByText('Carregando formulário de cartão...')).not.toBeVisible({ timeout: 10000 });
+
+    await page.evaluate(() => (window as any).__mpSubmit().catch(() => {}));
+
+    await expect(page.getByText(/sistema antifraude do Mercado Pago/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Pagamento rejected')).toHaveCount(0);
+
+    expect(cardRequestBody?.deviceId).toBe('device-session-test');
+    expect(cardRequestBody?.payerName).toBe('Usuário Teste');
+  });
 });

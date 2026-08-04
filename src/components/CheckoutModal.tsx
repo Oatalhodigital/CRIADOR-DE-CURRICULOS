@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Clock, CheckCircle, AlertCircle, Download, Mail } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
-import CardPaymentBrick, { CardPaymentData } from './CardPaymentBrick';
+import CardPaymentBrick, { CardPaymentData, getMercadoPagoDeviceId } from './CardPaymentBrick';
 import { trackPurchase } from '@/lib/gtag';
 import { trackMetaPurchase } from '@/lib/metaPixel';
 
@@ -40,6 +40,7 @@ interface CardPaymentResult {
   id: string;
   status: string;
   status_detail?: string;
+  message?: string;
 }
 
 const createCardPayment = async (
@@ -47,12 +48,21 @@ const createCardPayment = async (
   amount: number,
   email: string,
   leadId?: string,
-  plan?: string
+  plan?: string,
+  payerName?: string
 ): Promise<CardPaymentResult> => {
   const res = await fetchWithTimeout('/api/payment/card', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...formData, amount, email, leadId, plan }),
+    body: JSON.stringify({
+      ...formData,
+      amount,
+      email,
+      leadId,
+      plan,
+      payerName,
+      deviceId: getMercadoPagoDeviceId(),
+    }),
   });
 
   if (!res.ok) {
@@ -128,6 +138,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const pollCountRef = useRef(0);
   const isMountedRef = useRef(true);
   const purchaseTrackedRef = useRef(false);
+  const pixInFlightRef = useRef(false);
 
   const resetPaymentState = () => {
     setPaymentData(null);
@@ -268,6 +279,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     if (paymentMethod !== 'pix') return;
 
+    // Evita gerar múltiplas cobranças PIX para o mesmo checkout quando o efeito
+    // reexecuta (cada chamada cria um pagamento novo no Mercado Pago).
+    if (pixInFlightRef.current) return;
+    pixInFlightRef.current = true;
+
     setIsLoading(true);
     resetPaymentState();
 
@@ -282,6 +298,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
       console.error('CheckoutModal: create payment error', err);
     } finally {
+      pixInFlightRef.current = false;
       if (isMountedRef.current) {
         setIsLoading(false);
       }
@@ -306,16 +323,38 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setError(null);
 
       try {
-        const result = await createCardPayment(formData, amount, resume.personalInfo.email, resume.id, plan);
-        if (isMountedRef.current) {
-          setCardPaymentId(result.id);
-          if (result.status === 'approved') {
-            setPaymentStatus('approved');
-            completePaymentAndDownload(result.id);
-          } else {
-            setError(`Pagamento ${result.status}. Verifique o status ou aguarde a confirmação.`);
-          }
+        const result = await createCardPayment(
+          formData,
+          amount,
+          resume.personalInfo.email,
+          resume.id,
+          plan,
+          resume.personalInfo.fullName
+        );
+        if (!isMountedRef.current) return;
+
+        setCardPaymentId(result.id);
+
+        if (result.status === 'approved') {
+          setPaymentStatus('approved');
+          completePaymentAndDownload(result.id);
+          return;
         }
+
+        const message =
+          result.message ||
+          'Não foi possível concluir o pagamento com cartão. Tente outro cartão ou pague com PIX.';
+
+        // Pagamento em análise: mantém o aviso e o botão "Já paguei — Verificar".
+        if (result.status === 'in_process' || result.status === 'pending') {
+          setError(message);
+          return;
+        }
+
+        // Recusado/cancelado: rejeita a promise para o Brick liberar o
+        // formulário e permitir outro cartão.
+        setPaymentStatus('failed');
+        throw new Error(message);
       } catch (err) {
         if (isMountedRef.current) {
           setError(err instanceof Error ? err.message : 'Erro ao processar cartão. Tente novamente.');

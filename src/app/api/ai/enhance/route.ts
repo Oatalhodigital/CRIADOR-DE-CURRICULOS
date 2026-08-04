@@ -45,9 +45,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Rate limiting check: 3 por minuto / 20 por hora por IP
+  // Rate limiting: 10 por minuto / 60 por hora por IP. As chaves são
+  // prefixadas por rota para não colidir com o limite de /api/ai/summary.
   const clientIp = getClientIp(request);
-  if (!checkRateLimit(clientIp, 3, 60 * 1000) || !checkRateLimit(`${clientIp}:hour`, 20, 60 * 60 * 1000)) {
+  if (
+    !checkRateLimit(`enhance:min:${clientIp}`, 10, 60 * 1000) ||
+    !checkRateLimit(`enhance:hour:${clientIp}`, 60, 60 * 60 * 1000)
+  ) {
     return NextResponse.json(
       { error: 'Limite de chamadas de IA atingido. Tente novamente em alguns minutos.' },
       { status: 429 }

@@ -27,8 +27,16 @@ declare global {
   interface Window {
     MercadoPago?: any;
     cardPaymentBrickController?: any;
+    MP_DEVICE_SESSION_ID?: string;
   }
 }
+
+/**
+ * Device ID gerado pelo SDK do Mercado Pago. Deve ser enviado ao criar o
+ * pagamento (header X-meli-session-id) para melhorar a aprovação antifraude.
+ */
+export const getMercadoPagoDeviceId = (): string | undefined =>
+  typeof window === 'undefined' ? undefined : window.MP_DEVICE_SESSION_ID;
 
 const loadScript = (src: string) =>
   new Promise<void>((resolve, reject) => {
@@ -45,6 +53,7 @@ const loadScript = (src: string) =>
   });
 
 const SDK_URL = 'https://sdk.mercadopago.com/js/v2';
+const SECURITY_SDK_URL = 'https://www.mercadopago.com/v2/security.js';
 const INIT_TIMEOUT_MS = 15000;
 const MAX_RETRIES = 2;
 
@@ -96,6 +105,15 @@ const CardPaymentBrick = ({
         setError(null);
 
         await loadScript(SDK_URL);
+
+        // O SDK v2 já coleta o Device ID, mas se por algum motivo a variável não
+        // existir carregamos o script de segurança como reforço. Sem await: o
+        // Device ID só é lido no envio e isso não pode atrasar o formulário.
+        if (!window.MP_DEVICE_SESSION_ID) {
+          void loadScript(`${SECURITY_SDK_URL}?view=checkout`).catch((err) =>
+            console.warn('[CardPaymentBrick] security.js não carregou', err)
+          );
+        }
 
         if (!mountedRef.current) return;
         if (!window.MercadoPago) {

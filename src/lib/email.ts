@@ -7,7 +7,7 @@ export function getFromEmail(): string {
 }
 
 export function getAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://criador-de-curriculos.vercel.app';
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://curriculorapidocomia.com.br';
 }
 
 export async function sendPaymentConfirmationEmail(

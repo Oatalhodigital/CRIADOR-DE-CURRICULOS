@@ -2,6 +2,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { insertLeadPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 6000, label = 'operation'): Promise<T> =>
   Promise.race([
@@ -11,27 +12,8 @@ const withTimeout = <T,>(promise: Promise<T>, ms = 6000, label = 'operation'): P
     ),
   ]);
 
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT = 20; // 20 requisições por minuto por IP
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minuto
-
-function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-  return forwarded?.split(',')[0].trim() || realIp || 'unknown';
-}
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const record = rateLimitMap.get(ip);
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
-    return true;
-  }
-  if (record.count >= RATE_LIMIT) return false;
-  record.count++;
-  return true;
-}
 
 export async function POST(request: NextRequest) {
   const start = Date.now();
@@ -47,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     const clientIp = getClientIp(request);
-    if (!checkRateLimit(clientIp)) {
+    if (!checkRateLimit(`leads:${clientIp}`, RATE_LIMIT, RATE_LIMIT_WINDOW)) {
       return NextResponse.json(
         { error: 'Muitas tentativas de cadastro. Aguarde um minuto.' },
         { status: 429 }
@@ -88,9 +70,10 @@ export async function POST(request: NextRequest) {
       'save lead'
     );
 
-    // Analytics complementar em Postgres (não bloqueia o fluxo principal)
+    // Precisa ser aguardado: em serverless a execução é congelada assim que a
+    // resposta é devolvida, e a escrita ficaria pela metade.
     try {
-      insertLeadPostgres({
+      await insertLeadPostgres({
         firestore_id: leadId,
         name,
         email,
@@ -100,7 +83,7 @@ export async function POST(request: NextRequest) {
         utm_medium: utm_medium || null,
         utm_campaign: utm_campaign || null,
       });
-      insertFunnelEventPostgres({
+      await insertFunnelEventPostgres({
         lead_firestore_id: leadId,
         event_name: 'lead_captured',
       });

@@ -42,7 +42,17 @@ export async function POST(request: NextRequest) {
         'webhook payment get'
       );
 
-      if (paymentData.status === 'approved') {
+      const mpStatus = paymentData.status || 'unknown';
+
+      // Mantém o pedido sincronizado com o Mercado Pago em qualquer status
+      // (rejected/cancelled/in_process também), não só quando aprovado.
+      try {
+        await updateOrderStatusPostgres(String(paymentId), mpStatus);
+      } catch (postgresErr) {
+        console.error('[api/payment/webhook] status update failed', postgresErr);
+      }
+
+      if (mpStatus === 'approved') {
         if (adminDb) {
           const leadRef = adminDb
             .collection('leads')
@@ -72,11 +82,8 @@ export async function POST(request: NextRequest) {
           console.warn('[api/payment/webhook] adminDb não configurado; lead não atualizado');
         }
 
-        // Analytics complementar em Postgres (não bloqueia o fluxo principal)
         try {
-          const status = paymentData.status === 'approved' ? 'approved' : (paymentData.status || 'unknown');
-          updateOrderStatusPostgres(String(paymentId), status);
-          insertFunnelEventPostgres({
+          await insertFunnelEventPostgres({
             lead_firestore_id: String(paymentData.external_reference || ''),
             event_name: 'payment_approved',
             metadata: { payment_id: String(paymentId), amount: paymentData.transaction_amount },
@@ -97,6 +104,13 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(`[api/payment/webhook] pagamento ${paymentId} aprovado para ${paymentData.payer?.email}`);
+      } else {
+        console.log('[api/payment/webhook] pagamento não aprovado', {
+          paymentId: String(paymentId),
+          status: mpStatus,
+          status_detail: (paymentData as any)?.status_detail,
+          payment_type_id: (paymentData as any)?.payment_type_id,
+        });
       }
     }
 

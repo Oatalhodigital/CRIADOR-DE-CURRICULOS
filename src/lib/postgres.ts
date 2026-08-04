@@ -168,7 +168,15 @@ export async function insertOrderPostgres(data: OrderInsertData) {
     await pgQuery`
       INSERT INTO orders (lead_firestore_id, resume_firestore_id, plan, amount_cents, currency, payment_method, mp_payment_id, status, downloads_allowed)
       VALUES (${data.lead_firestore_id || null}, ${data.resume_firestore_id || null}, ${data.plan || 'unknown'}, ${data.amount_cents}, ${data.currency || 'BRL'}, ${data.payment_method}, ${data.mp_payment_id || null}, ${data.status || 'pending'}, ${downloadsAllowed})
-      ON CONFLICT (mp_payment_id) DO NOTHING
+      ON CONFLICT (mp_payment_id) DO UPDATE SET
+        lead_firestore_id = COALESCE(orders.lead_firestore_id, EXCLUDED.lead_firestore_id),
+        resume_firestore_id = COALESCE(orders.resume_firestore_id, EXCLUDED.resume_firestore_id),
+        plan = CASE WHEN orders.plan = 'unknown' THEN EXCLUDED.plan ELSE orders.plan END,
+        amount_cents = CASE WHEN orders.amount_cents = 0 THEN EXCLUDED.amount_cents ELSE orders.amount_cents END,
+        payment_method = EXCLUDED.payment_method,
+        downloads_allowed = GREATEST(orders.downloads_allowed, EXCLUDED.downloads_allowed),
+        status = CASE WHEN orders.status = 'approved' THEN orders.status ELSE EXCLUDED.status END,
+        updated_at = NOW()
     `;
   } catch (err) {
     console.error('[postgres] insertOrder failed', err);
