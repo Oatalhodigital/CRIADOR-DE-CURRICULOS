@@ -37,8 +37,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let id: string | undefined;
   try {
-    const { id } = await params;
+    ({ id } = await params);
 
     if (!id) {
       if (isBrowserNavigation(request)) return getRedirectResponse(request);
@@ -82,7 +83,12 @@ export async function GET(
         const payerEmail = order.payer_email || resume.personalInfo?.email || null;
         if (payerEmail) {
           const downloadUrl = `${getAppUrl()}/api/download/${id}`;
-          const result = await sendPaymentConfirmationEmail(payerEmail, id, order.plan, downloadUrl);
+          const result = await sendPaymentConfirmationEmail({
+            to: payerEmail,
+            paymentId: id,
+            plan: order.plan,
+            downloadUrl,
+          });
           await markConfirmationEmailSent(id, result.success);
         }
       } catch (emailErr) {
@@ -98,8 +104,23 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error('[api/download] error', err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorType = err instanceof Error ? err.name : 'unknown';
+    console.error('[api/download] error', {
+      id,
+      error: errorMessage,
+      type: errorType,
+      timestamp: new Date().toISOString(),
+    });
     if (isBrowserNavigation(request)) return getRedirectResponse(request);
-    return NextResponse.json({ error: 'Falha ao gerar PDF.' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Falha ao gerar o PDF.',
+        details: errorMessage,
+        type: errorType,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
   }
 }

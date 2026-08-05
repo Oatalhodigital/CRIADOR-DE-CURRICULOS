@@ -154,8 +154,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  const getDownloadErrorMessage = (err: any, responseDetails?: any): string => {
+    if (err instanceof Error) return err.message;
+    if (responseDetails?.error) return String(responseDetails.error);
+    return 'Não foi possível baixar o arquivo. Tente novamente mais tarde.';
+  };
+
   const downloadPdf = async (url: string, retries = 2): Promise<void> => {
     let lastError = '';
+    let lastDetails: any = null;
+
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
       try {
         console.log('[CheckoutModal] iniciando download de PDF', { attempt, url, timestamp: new Date().toISOString() });
@@ -165,13 +173,31 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           20000
         );
 
+        console.log('[CheckoutModal] resposta do download', {
+          attempt,
+          status: res.status,
+          contentType: res.headers.get('content-type'),
+          contentLength: res.headers.get('content-length'),
+          url,
+        });
+
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
+          lastDetails = data;
           throw new Error(data.error || `Erro ${res.status} ao baixar PDF.`);
         }
 
+        const contentType = res.headers.get('content-type') || '';
         const blob = await res.blob();
+        console.log('[CheckoutModal] blob recebido', { attempt, size: blob.size, contentType });
+
+        if (blob.size === 0) {
+          throw new Error('O arquivo PDF retornou vazio.');
+        }
+
         const blobUrl = URL.createObjectURL(blob);
+
+        // Tenta download via âncora (funciona bem em desktop/Chrome Android).
         const a = document.createElement('a');
         a.href = blobUrl;
         a.download = 'curriculo.pdf';
@@ -179,41 +205,66 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+
+        // Em iOS/Safari o clique pode não iniciar download; aguardamos um
+        // pequeno instante e, se o documento ainda estiver aberto,
+        // abrimos em nova aba como fallback.
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        if (isIOS || isSafari) {
+          setTimeout(() => {
+            window.open(blobUrl, '_blank');
+          }, 500);
+        }
+
         URL.revokeObjectURL(blobUrl);
         console.log('[CheckoutModal] download de PDF concluído', { attempt });
         return;
       } catch (err: any) {
         lastError = err instanceof Error ? err.message : String(err);
-        console.error(`[CheckoutModal] tentativa ${attempt} de download falhou`, { error: lastError, url });
+        console.error(`[CheckoutModal] tentativa ${attempt} de download falhou`, { error: lastError, details: lastDetails, url });
 
         const isNetworkError = err instanceof TypeError || err?.name === 'AbortError' || lastError.toLowerCase().includes('network');
         if (!isNetworkError || attempt > retries) break;
         await sleep(1000 * attempt);
       }
     }
-    throw new Error(lastError || 'Não foi possível iniciar o download automático.');
+
+    // Fallback final: abre o link direto em nova aba. Em muitos navegadores
+    // mobile isso abre o visualizador de PDF nativo.
+    try {
+      console.log('[CheckoutModal] tentando fallback window.open para PDF', { url });
+      window.open(url, '_blank');
+    } catch (openErr) {
+      console.error('[CheckoutModal] fallback window.open falhou', openErr);
+    }
+
+    throw new Error(getDownloadErrorMessage(lastError, lastDetails) || 'Não foi possível iniciar o download automático.');
+  };
+
+  const isPurchaseTracked = (pid: string): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return sessionStorage.getItem(`purchase_tracked_${pid}`) === '1';
+    } catch {
+      return false;
+    }
+  };
+
+  const markPurchaseTracked = (pid: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      sessionStorage.setItem(`purchase_tracked_${pid}`, '1');
+    } catch {
+      // sessionStorage pode estar desabilitado
+    }
   };
 
   const completePaymentAndDownload = useCallback(
     async (paymentId: string) => {
       setDeliveryError(null);
       let lastError = '';
-
-      if (!purchaseTrackedRef.current) {
-        purchaseTrackedRef.current = true;
-        trackPurchase({
-          transactionId: paymentId,
-          value: amount,
-          paymentMethod,
-          plan,
-        });
-        trackMetaPurchase({
-          transactionId: paymentId,
-          value: amount,
-          paymentMethod,
-          plan,
-        });
-      }
+      let wasConfirmed = false;
 
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -238,12 +289,39 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               setDownloadUrl(data.downloadUrl);
               setEmailSent(data.emailSent === true);
             }
+            wasConfirmed = true;
+
+            // Dispara eventos de purchase SOMENTE após confirmação real do
+            // backend e com deduplicação por paymentId.
+            if (!purchaseTrackedRef.current && !isPurchaseTracked(paymentId)) {
+              purchaseTrackedRef.current = true;
+              markPurchaseTracked(paymentId);
+              trackPurchase({
+                transactionId: paymentId,
+                value: amount,
+                paymentMethod,
+                plan,
+              });
+              trackMetaPurchase({
+                transactionId: paymentId,
+                value: amount,
+                paymentMethod,
+                plan,
+              });
+            }
+
             try {
               await downloadPdf(data.downloadUrl, 2);
             } catch (downloadErr) {
-              console.error('[CheckoutModal] download automático falhou', { error: downloadErr instanceof Error ? downloadErr.message : String(downloadErr), paymentId });
+              const downloadMessage = downloadErr instanceof Error ? downloadErr.message : 'Download automático não iniciou. Use o botão abaixo.';
+              console.error('[CheckoutModal] download automático falhou', { error: downloadMessage, paymentId });
               if (isMountedRef.current) {
-                setDeliveryError(downloadErr instanceof Error ? downloadErr.message : 'Download automático não iniciou. Use o botão abaixo.');
+                const hasEmail = data.emailSent === true;
+                setDeliveryError(
+                  hasEmail
+                    ? `${downloadMessage} — também enviamos o PDF para o e-mail cadastrado. Verifique a caixa de entrada e o spam.`
+                    : downloadMessage
+                );
               }
             }
             onPaymentSuccess(paymentId);
@@ -614,7 +692,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <h3 className="text-lg font-bold text-gray-900">Pagamento Aprovado!</h3>
               <p className="text-sm text-gray-600">
                 {deliveryError
-                  ? 'Baixe o currículo manualmente abaixo.'
+                  ? 'Use o botão abaixo ou o link direto. Também enviamos o PDF por e-mail.'
                   : 'O download automático começou. Se não iniciar, use o botão abaixo.'}
               </p>
             </div>
@@ -630,21 +708,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             )}
             {downloadUrl ? (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await downloadPdf(downloadUrl, 0);
-                  } catch (err) {
-                    console.error('[CheckoutModal] download manual falhou', err);
-                    setDeliveryError('Não foi possível baixar o arquivo. Tente novamente mais tarde.');
-                  }
-                }}
-                className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
-              >
-                <Download className="w-5 h-5" />
-                Baixar Currículo
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await downloadPdf(downloadUrl, 0);
+                    } catch (err) {
+                      console.error('[CheckoutModal] download manual falhou', err);
+                      const baseMessage = err instanceof Error ? err.message : 'Não foi possível baixar o arquivo. Tente novamente mais tarde.';
+                      setDeliveryError(
+                        emailSent
+                          ? `${baseMessage} — também enviamos o PDF para o e-mail cadastrado. Verifique a caixa de entrada e o spam.`
+                          : baseMessage
+                      );
+                    }
+                  }}
+                  className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
+                >
+                  <Download className="w-5 h-5" />
+                  Baixar Currículo
+                </button>
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full bg-white border-2 border-green-600 text-green-700 py-3 rounded-xl font-semibold hover:bg-green-50 transition"
+                >
+                  Abrir PDF em nova aba
+                </a>
+              </>
             ) : deliveryError ? (
               <button
                 onClick={() => {
