@@ -30,6 +30,14 @@ export function resolveRedirectOutcome(): Promise<RedirectOutcome> {
   if (!pendingOutcome) {
     pendingOutcome = (async (): Promise<RedirectOutcome> => {
       if (!auth) return { status: 'none' }
+
+      // Se o usuário já tem uma sessão ativa, usamos ela imediatamente sem
+      // precisar processar o redirect. Isso previne que carregamentos normais
+      // de página sejam confundidos com cancelamento de login.
+      if (auth.currentUser) {
+        return { status: 'success', user: auth.currentUser }
+      }
+
       try {
         const timeout = new Promise<RedirectOutcome>((resolve) =>
           setTimeout(

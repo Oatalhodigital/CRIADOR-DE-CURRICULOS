@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { User, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react'
 import { auth } from '@/lib/firebase'
-import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth'
+import { GoogleAuthProvider, onAuthStateChanged, signInWithRedirect } from 'firebase/auth'
 import {
   clearGoogleLoginPending,
   isGoogleLoginPending,
@@ -55,6 +55,23 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
   useEffect(() => {
     mountedRef.current = true
 
+    // Se o usuário já está autenticado (ex.: voltou ao site e a sessão ainda
+    // é válida), avança automaticamente sem exigir novo login.
+    const unsubscribe = auth
+      ? onAuthStateChanged(auth, (user) => {
+          if (resolvedRef.current || !mountedRef.current) return
+          if (user?.email) {
+            resolvedRef.current = true
+            const displayName = user.displayName || ''
+            const userEmail = user.email
+            console.log('[LeadCaptureModal] user already authenticated, auto-advancing', { userEmail })
+            setName(displayName)
+            setEmail(userEmail)
+            onComplete({ name: displayName, email: userEmail, whatsapp: '' })
+          }
+        })
+      : () => {}
+
     const restoreFromStorage = () => {
       try {
         const saved = sessionStorage.getItem(STORAGE_KEY)
@@ -73,8 +90,12 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
     const handleRedirectResult = async () => {
       if (!auth) return
 
+      // Captura o estado ANTES de limpar, para sabermos se o usuário realmente
+      // iniciou um login com redirect. Limpamos a flag imediatamente para
+      // evitar que recarregamentos futuros a confundam com cancelamento.
       const wasPending = isGoogleLoginPending()
       if (wasPending) setGoogleLoading(true)
+      clearGoogleLoginPending()
 
       const outcome = await resolveRedirectOutcome()
       const timestamp = new Date().toISOString()
@@ -83,7 +104,6 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       setGoogleLoading(false)
 
       if (outcome.status === 'success') {
-        clearGoogleLoginPending()
         resolvedRef.current = true
         console.log('[auth redirect] success', { hasEmail: Boolean(outcome.user.email), timestamp })
 
@@ -97,18 +117,16 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       if (outcome.status === 'error') {
         // O progresso do formulário permanece em sessionStorage para que o
         // usuário possa tentar novamente sem perder nada.
-        clearGoogleLoginPending()
         console.error('[auth redirect] error', { code: outcome.code, timestamp })
         setError(getUserMessageForAuthError(outcome.code, outcome.message))
         return
       }
 
       if (wasPending) {
-        // Voltou do Google sem credencial: típico de login cancelado na tela de
-        // seleção de conta. Não é um erro do site, apenas informamos.
-        clearGoogleLoginPending()
-        console.log('[auth redirect] returned without credential (likely cancelled)', { timestamp })
-        setError('Login com Google não foi concluído. Preencha seus dados abaixo ou tente novamente.')
+        // Voltou do Google sem credencial: pode ter sido cancelamento OU um
+        // recarregamento da página após iniciar o redirect. Não tratamos como
+        // erro fatal — apenas logamos e deixamos o formulário visível.
+        console.log('[auth redirect] returned without credential (likely cancelled or reload)', { timestamp })
         return
       }
 
@@ -120,8 +138,9 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
     return () => {
       mountedRef.current = false
+      unsubscribe()
     }
-  }, [])
+  }, [onComplete])
 
   const backgroundSave = async (payload: object, retries = 3) => {
     for (let attempt = 1; attempt <= retries; attempt++) {
