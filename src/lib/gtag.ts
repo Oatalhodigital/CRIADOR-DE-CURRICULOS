@@ -42,6 +42,7 @@ export const trackPurchase = (params: {
   plan?: string
 }) =>
   trackEvent('purchase', {
+    event_id: params.transactionId,
     transaction_id: params.transactionId,
     value: params.value,
     currency: 'BRL',
