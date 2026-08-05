@@ -2,6 +2,12 @@ import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// O Resend aceita anexos até cerca de 50 MB no e-mail todo; com overhead base64,
+// mantemos margem de segurança para o PDF convertido em base64.
+const MAX_ATTACHMENT_BYTES = 30 * 1024 * 1024;
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 500;
+
 export function getFromEmail(): string {
   return process.env.EMAIL_FROM || 'Criador de Currículos <no-reply@resend.dev>';
 }
@@ -10,47 +16,105 @@ export function getAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || 'https://curriculorapidocomia.com.br';
 }
 
-export async function sendPaymentConfirmationEmail(
-  to: string,
-  paymentId: string,
-  plan: string,
-  downloadUrl: string
-) {
+type SendEmailOptions = {
+  to: string;
+  paymentId: string;
+  plan: string;
+  downloadUrl: string;
+  pdfBuffer?: Buffer | null;
+};
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function sendEmailWithRetry(payload: {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: { filename: string; content: Buffer }[];
+}): Promise<{ success: boolean; data?: any; error?: string }> {
   if (!resend) {
     console.error('[email] RESEND_API_KEY not configured');
     return { success: false, error: 'RESEND_API_KEY not configured' };
   }
 
+  let lastError: string | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await resend.emails.send(payload);
+      console.log('[email] sent successfully', { to: payload.to, attempt });
+      return { success: true, data: result };
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : 'Erro desconhecido ao enviar e-mail';
+      console.error(`[email] attempt ${attempt}/${MAX_RETRIES} failed`, { error: lastError });
+      if (attempt < MAX_RETRIES) {
+        await delay(INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1));
+      }
+    }
+  }
+
+  return { success: false, error: lastError || 'Falha ao enviar e-mail após retries' };
+}
+
+export async function sendPaymentConfirmationEmail({
+  to,
+  paymentId,
+  plan,
+  downloadUrl,
+  pdfBuffer,
+}: SendEmailOptions) {
   const planLabels: Record<string, string> = {
     single: 'Básico',
     weekly: 'Intermediário',
     monthly: 'Completo',
   };
 
-  try {
-    const result = await resend.emails.send({
-      from: getFromEmail(),
-      to,
-      subject: 'Seu currículo foi aprovado — link de download',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #059669;">Pagamento aprovado!</h2>
-          <p>Olá,</p>
-          <p>Recebemos a confirmação do seu pagamento (<strong>#${paymentId}</strong>) referente ao plano <strong>${planLabels[plan] || plan}</strong>.</p>
-          <p>Seu currículo em PDF está pronto para download. Clique no botão abaixo para baixar:</p>
-          <p style="margin: 24px 0;">
-            <a href="${downloadUrl}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Baixar currículo em PDF</a>
-          </p>
-          <p>Caso o botão não funcione, copie e cole o link no navegador:</p>
-          <p style="word-break: break-all; color: #374151;">${downloadUrl}</p>
-          <p>O link é válido de acordo com o limite de downloads do seu plano.</p>
-          <p style="font-size: 12px; color: #6b7280;">LS Soluções Digitais — Criador de Currículos</p>
-        </div>
-      `,
-    });
-    return { success: true, data: result };
-  } catch (err) {
-    console.error('[email] sendPaymentConfirmationEmail failed', err);
-    return { success: false, error: err instanceof Error ? err.message : 'Erro ao enviar e-mail' };
-  }
+  const planLabel = planLabels[plan] || plan || 'Escolhido';
+  const hasAttachment = Boolean(pdfBuffer && pdfBuffer.length > 0 && pdfBuffer.length <= MAX_ATTACHMENT_BYTES);
+  const attachmentNote = hasAttachment
+    ? '<p>O PDF do seu currículo está em anexo. Guarde-o com segurança.</p>'
+    : '<p>O PDF está pronto para download pelo link seguro abaixo.</p>';
+
+  const attachments = hasAttachment
+    ? [
+        {
+          filename: 'curriculo.pdf',
+          content: pdfBuffer as Buffer,
+        },
+      ]
+    : undefined;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #059669;">Pagamento aprovado!</h2>
+      <p>Olá,</p>
+      <p>Recebemos a confirmação do seu pagamento (<strong>#${paymentId}</strong>) referente ao plano <strong>${planLabel}</strong>.</p>
+      ${attachmentNote}
+      <p style="margin: 24px 0;">
+        <a href="${downloadUrl}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Baixar currículo em PDF</a>
+      </p>
+      ${!hasAttachment ? `<p>Caso o botão não funcione, copie e cole o link no navegador:</p><p style="word-break: break-all; color: #374151;">${downloadUrl}</p>` : ''}
+      <p style="font-size: 12px; color: #6b7280;">
+        Em caso de qualquer dificuldade, responda este e-mail. Agradecemos a confiança!<br/>
+        Gostou do resultado? Indique para um amigo ou deixe uma avaliação — nos ajuda muito.<br/>
+        LS Soluções Digitais — Criador de Currículos
+      </p>
+    </div>
+  `;
+
+  const result = await sendEmailWithRetry({
+    from: getFromEmail(),
+    to,
+    subject: 'Seu currículo em PDF chegou — pagamento aprovado',
+    html,
+    attachments,
+  });
+
+  return {
+    ...result,
+    attachmentSent: hasAttachment,
+  };
 }

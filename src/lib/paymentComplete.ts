@@ -11,6 +11,7 @@ import {
 import { getAppUrl, sendPaymentConfirmationEmail } from './email';
 import { getPaymentStatusMessage, normalizePaymentMethod } from './mercadoPago';
 import { trackMetaPurchaseServerSide } from './metaConversionsApi';
+import { generateResumePdfBuffer } from './pdf';
 import { Resume } from '@/types/resume';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 10000, label = 'payment'): Promise<T> =>
@@ -146,19 +147,45 @@ export async function finalizePaymentDelivery({
 
   let emailSent = false;
   let emailError: string | null = null;
+  let attachmentSent = false;
 
   if (payerEmail) {
     try {
-      const emailResult = await sendPaymentConfirmationEmail(
-        payerEmail,
-        mpPaymentId,
-        order?.plan || 'unknown',
-        downloadUrl
-      );
+      // Gera o PDF em servidor para anexar ao e-mail, garantindo a "segunda via"
+      // independentemente do download no navegador.
+      let pdfBuffer: Buffer | null = null;
+      const resumeToRender = snapshot || order?.resume_snapshot;
+      if (resumeToRender) {
+        try {
+          pdfBuffer = await withTimeout(
+            generateResumePdfBuffer(resumeToRender as Resume),
+            15000,
+            'pdf-generation'
+          );
+        } catch (pdfErr) {
+          console.error('[paymentComplete] PDF generation for e-mail failed', {
+            error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr),
+            mpPaymentId,
+          });
+        }
+      }
+
+      const emailResult = await sendPaymentConfirmationEmail({
+        to: payerEmail,
+        paymentId: mpPaymentId,
+        plan: order?.plan || 'unknown',
+        downloadUrl,
+        pdfBuffer,
+      });
+
       emailSent = emailResult.success;
+      attachmentSent = 'attachmentSent' in emailResult ? Boolean(emailResult.attachmentSent) : false;
+
       if (!emailResult.success && emailResult.error) {
         emailError = emailResult.error;
         console.error('[paymentComplete] e-mail not sent', { error: emailResult.error, mpPaymentId, payerEmail });
+      } else if (emailResult.success) {
+        console.log('[paymentComplete] e-mail delivered', { mpPaymentId, payerEmail, attachmentSent });
       }
     } catch (err) {
       console.error('[paymentComplete] unexpected e-mail error', { err, mpPaymentId, payerEmail });
@@ -192,6 +219,7 @@ export async function finalizePaymentDelivery({
     success: true,
     downloadUrl,
     emailSent,
+    attachmentSent,
     emailError,
     payerEmail,
     downloadsAllowed: order?.downloads_allowed || 1,
