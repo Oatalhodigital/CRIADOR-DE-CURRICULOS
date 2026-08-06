@@ -9,7 +9,16 @@ const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 500;
 
 export function getFromEmail(): string {
-  return process.env.EMAIL_FROM || 'Criador de Currículos <no-reply@resend.dev>';
+  // O domínio resend.dev só pode enviar a partir de onboarding@resend.dev
+  // sem verificação. Endereços genéricos como no-reply@resend.dev não
+  // funcionam fora do sandbox, então fazemos fallback seguro aqui.
+  const from = process.env.EMAIL_FROM?.trim();
+  if (!from) return 'onboarding@resend.dev';
+  if (from.includes('@resend.dev') && from !== 'onboarding@resend.dev' && !from.startsWith('onboarding@resend.dev')) {
+    console.warn('[email] EMAIL_FROM aponta para resend.dev, mas não é onboarding@resend.dev; usando fallback', from);
+    return 'onboarding@resend.dev';
+  }
+  return from;
 }
 
 export function getAppUrl(): string {
@@ -58,11 +67,18 @@ async function sendEmailWithRetry(payload: {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await resend.emails.send(payload);
-      console.log('[email] sent successfully', { to: payload.to, attempt });
+      const resendId = (result?.data as { id?: string } | null)?.id || null;
+      console.log('[email] sent successfully', {
+        to: payload.to?.replace(/@.*$/, '@...'),
+        attempt,
+        resendId,
+        from: payload.from,
+        hasAttachment: !!payload.attachments?.length,
+      });
       return { success: true, data: result };
     } catch (err) {
       lastError = err instanceof Error ? err.message : 'Erro desconhecido ao enviar e-mail';
-      console.error(`[email] attempt ${attempt}/${MAX_RETRIES} failed`, { error: lastError });
+      console.error(`[email] attempt ${attempt}/${MAX_RETRIES} failed`, { error: lastError, to: payload.to?.replace(/@.*$/, '@...'), from: payload.from });
       if (attempt < MAX_RETRIES) {
         await delay(INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1));
       }
