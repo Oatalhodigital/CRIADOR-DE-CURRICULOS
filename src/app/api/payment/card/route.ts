@@ -152,7 +152,10 @@ export async function POST(request: NextRequest) {
       id: String(result.id),
       status,
       status_detail: result.status_detail,
-      hasDeviceId: Boolean(deviceId),
+      payment_method_id: result.payment_method_id,
+      issuer_id,
+      deviceIdLength: deviceId ? String(deviceId).length : 0,
+      deviceIdPrefix: deviceId ? String(deviceId).slice(0, 8) : null,
       hasIdentification: Boolean(identification),
     });
 
