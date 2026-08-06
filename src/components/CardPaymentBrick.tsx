@@ -34,9 +34,25 @@ declare global {
 /**
  * Device ID gerado pelo SDK do Mercado Pago. Deve ser enviado ao criar o
  * pagamento (header X-meli-session-id) para melhorar a aprovação antifraude.
+ * Em mobile o security.js pode demorar um pouco mais, então tenta esperar
+ * antes de retornar vazio.
  */
-export const getMercadoPagoDeviceId = (): string | undefined =>
-  typeof window === 'undefined' ? undefined : window.MP_DEVICE_SESSION_ID;
+export const getMercadoPagoDeviceId = (timeoutMs = 2000): string | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  if (window.MP_DEVICE_SESSION_ID) return window.MP_DEVICE_SESSION_ID;
+
+  // Em mobile a segurança pode não estar pronta no clique; tentamos extrair
+  // de forma síncrona em até timeoutMs (síncrono curto para não travar UI).
+  const start = Date.now();
+  while (!window.MP_DEVICE_SESSION_ID && Date.now() - start < timeoutMs) {
+    // busy-wait leve de 50ms por iteração
+    const wait = Date.now();
+    while (Date.now() - wait < 50) {
+      /* busy-wait sinalizador */
+    }
+  }
+  return window.MP_DEVICE_SESSION_ID;
+};
 
 const loadScript = (src: string) =>
   new Promise<void>((resolve, reject) => {
