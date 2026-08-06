@@ -13,7 +13,20 @@ export function getFromEmail(): string {
 }
 
 export function getAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://curriculorapidocomia.com.br';
+  // Domínio correto em punycode para currículorapidocomia.com.br.
+  // O domínio sem acento (curriculorapidocomia.com.br) NUNCA teve DNS
+  // configurado e quebra links/e-mails de download.
+  const fallback = 'https://xn--currculorapidocomia-o1b.com.br';
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!envUrl) {
+    console.warn('[getAppUrl] NEXT_PUBLIC_APP_URL não configurado; usando fallback', fallback);
+  } else if (envUrl.includes('curriculorapidocomia.com.br') && !envUrl.includes('xn--')) {
+    console.error(
+      '[getAppUrl] NEXT_PUBLIC_APP_URL parece usar o domínio sem acento; corrija para',
+      fallback
+    );
+  }
+  return envUrl || fallback;
 }
 
 type SendEmailOptions = {
