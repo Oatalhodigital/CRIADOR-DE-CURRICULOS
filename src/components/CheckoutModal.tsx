@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, Clock, CheckCircle, AlertCircle, Download, Mail } from 'lucide-react';
+import { X, Clock, CheckCircle, AlertCircle, Download, Mail, Copy, Check } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
 import CardPaymentBrick, { CardPaymentData, getMercadoPagoDeviceId } from './CardPaymentBrick';
 import { trackPurchase } from '@/lib/gtag';
@@ -132,6 +132,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'failed'>('pending');
+  const [pixCopied, setPixCopied] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
@@ -145,11 +146,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setCardPaymentId(null);
     setError(null);
     setPaymentStatus('pending');
+    setPixCopied(false);
     setDownloadUrl(null);
     setEmailSent(false);
     setDeliveryError(null);
     pollCountRef.current = 0;
     purchaseTrackedRef.current = false;
+  };
+
+  const copyPixCode = async () => {
+    if (!paymentData?.qr_code) return;
+    try {
+      await navigator.clipboard.writeText(paymentData.qr_code);
+      setPixCopied(true);
+      setTimeout(() => {
+        if (isMountedRef.current) setPixCopied(false);
+      }, 2500);
+    } catch (err) {
+      console.error('CheckoutModal: copy PIX failed', err);
+    }
   };
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -413,23 +428,31 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         setCardPaymentId(result.id);
 
+        console.log('[CheckoutModal] card payment created', {
+          paymentId: result.id,
+          status: result.status,
+          statusDetail: result.status_detail,
+        });
+
         if (result.status === 'approved') {
           setPaymentStatus('approved');
           completePaymentAndDownload(result.id);
           return;
         }
 
+        // Qualquer status que não seja 'approved' é tratado como não aprovado.
+        // Em particular, 'in_process'/'pending' exibe a mensagem do backend sem
+        // marcar como aprovado, e o botão "Já paguei — Verificar" fica disponível.
         const message =
           result.message ||
           'Não foi possível concluir o pagamento com cartão. Tente outro cartão ou pague com PIX.';
 
-        // Pagamento em análise: mantém o aviso e o botão "Já paguei — Verificar".
         if (result.status === 'in_process' || result.status === 'pending') {
           setError(message);
           return;
         }
 
-        // Recusado/cancelado: rejeita a promise para o Brick liberar o
+        // Recusado/cancelado/expirado: rejeita a promise para o Brick liberar o
         // formulário e permitir outro cartão.
         setPaymentStatus('failed');
         throw new Error(message);
@@ -455,6 +478,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetPaymentState();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     resetPaymentState();
@@ -502,27 +531,41 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     };
   }, [paymentStatus, paymentData, paymentMethod, onPaymentSuccess]);
 
+  const checkCardPaymentStatus = async (paymentId: string): Promise<boolean> => {
+    const res = await fetchWithTimeout(`/api/payment/status/${paymentId}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Erro ${res.status} ao verificar o pagamento.`);
+    }
+    const data = await res.json();
+    return data.approved === true;
+  };
+
   const handleCheckStatus = async () => {
     if (paymentMethod === 'pix' && !paymentData) return;
+    if (paymentMethod === 'card' && !cardPaymentId) return;
 
     setIsChecking(true);
     try {
-      if (paymentMethod === 'pix' && paymentData) {
-        const isApproved = await checkPaymentStatus(paymentData.id);
-        if (isApproved) {
-          setPaymentStatus('approved');
-          completePaymentAndDownload(paymentData.id);
-        } else {
-          setError('Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.');
-        }
+      const paymentId = paymentMethod === 'pix' ? paymentData?.id : cardPaymentId;
+      if (!paymentId) {
+        setError('Identificador do pagamento não encontrado. Tente novamente.');
+        return;
+      }
+
+      const isApproved = await (paymentMethod === 'pix'
+        ? checkPaymentStatus(paymentId)
+        : checkCardPaymentStatus(paymentId));
+
+      if (isApproved) {
+        setPaymentStatus('approved');
+        completePaymentAndDownload(paymentId);
       } else {
-        const result = await searchPaymentByReference(resume.id);
-        if (result.approved && result.paymentId) {
-          setPaymentStatus('approved');
-          completePaymentAndDownload(result.paymentId);
-        } else {
-          setError('Pagamento ainda não confirmado. Se já pagou, aguarde alguns instantes e tente novamente.');
-        }
+        setError(
+          paymentMethod === 'pix'
+            ? 'Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.'
+            : 'Pagamento ainda não confirmado. Pode levar alguns instantes; tente novamente.'
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao verificar status do pagamento.');
@@ -621,11 +664,26 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             )}
 
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-xs text-gray-500 mb-2">Código PIX (copie e cole):</p>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              <p className="text-xs text-gray-500">Código PIX (copie e cole):</p>
               <p className="text-xs text-gray-700 break-all font-mono">
                 {paymentData.qr_code}
               </p>
+              <button
+                type="button"
+                onClick={copyPixCode}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition"
+              >
+                {pixCopied ? (
+                  <>
+                    <Check className="w-4 h-4" /> Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" /> Copiar código PIX
+                  </>
+                )}
+              </button>
             </div>
 
             <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 rounded-xl p-3">
