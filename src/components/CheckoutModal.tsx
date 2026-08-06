@@ -175,15 +175,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return 'Não foi possível baixar o arquivo. Tente novamente mais tarde.';
   };
 
+  // Converte uma URL do próprio site em relativa para evitar CORS entre
+  // www e não-www, ou entre punycode com/sem www. O navegador resolve a
+  // origem usando o domínio da página atual.
+  const toSameOriginPath = (url: string): string => {
+    try {
+      const parsed = new URL(url, window.location.href);
+      // Se o host for o mesmo da página, envia apenas o caminho.
+      if (parsed.hostname === window.location.hostname) {
+        return parsed.pathname + parsed.search;
+      }
+    } catch {
+      // Não conseguiu parsear; mantém como veio.
+    }
+    return url;
+  };
+
   const downloadPdf = async (url: string, retries = 2): Promise<void> => {
+    const safeUrl = typeof window === 'undefined' ? url : toSameOriginPath(url);
     let lastError = '';
     let lastDetails: any = null;
 
     for (let attempt = 1; attempt <= retries + 1; attempt++) {
       try {
-        console.log('[CheckoutModal] iniciando download de PDF', { attempt, url, timestamp: new Date().toISOString() });
+        console.log('[CheckoutModal] iniciando download de PDF', { attempt, url: safeUrl, original: url, timestamp: new Date().toISOString() });
         const res = await fetchWithTimeout(
-          url,
+          safeUrl,
           { headers: { 'X-Requested-With': 'checkout-autodownload' } },
           20000
         );
@@ -232,7 +249,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           }, 500);
         }
 
-        URL.revokeObjectURL(blobUrl);
+        // Libera o objeto URL após tempo suficiente para iOS abrir.
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
         console.log('[CheckoutModal] download de PDF concluído', { attempt });
         return;
       } catch (err: any) {
