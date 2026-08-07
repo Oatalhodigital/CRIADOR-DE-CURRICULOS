@@ -50,7 +50,7 @@ async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function sendEmailWithRetry(payload: {
+export async function sendEmailWithRetry(payload: {
   from: string;
   to: string;
   subject: string;
@@ -67,6 +67,22 @@ async function sendEmailWithRetry(payload: {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await resend.emails.send(payload);
+      // A SDK do Resend pode retornar { error } sem lançar exceção.
+      const resendError = (result as any)?.error;
+      if (resendError) {
+        const message = typeof resendError === 'string' ? resendError : resendError.message || JSON.stringify(resendError);
+        lastError = message;
+        console.error(`[email] attempt ${attempt}/${MAX_RETRIES} failed (Resend error)`, {
+          error: message,
+          to: payload.to?.replace(/@.*$/, '@...'),
+          from: payload.from,
+        });
+        if (attempt < MAX_RETRIES) {
+          await delay(INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1));
+          continue;
+        }
+        break;
+      }
       const resendId = (result?.data as { id?: string } | null)?.id || null;
       console.log('[email] sent successfully', {
         to: payload.to?.replace(/@.*$/, '@...'),
