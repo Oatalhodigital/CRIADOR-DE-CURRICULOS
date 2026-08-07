@@ -6,7 +6,7 @@
   "crons": [
     {
       "path": "/api/cron/pix-reminder",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 10 * * *"
     }
   ]
 }
