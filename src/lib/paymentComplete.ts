@@ -183,9 +183,10 @@ export async function finalizePaymentDelivery({
 
       if (!emailResult.success && emailResult.error) {
         emailError = emailResult.error;
-        console.error('[paymentComplete] e-mail not sent', { error: emailResult.error, mpPaymentId, payerEmail });
+        console.error('[paymentComplete] e-mail not sent', { error: emailResult.error, mpPaymentId, payerEmail: payerEmail?.replace(/@.*$/, '@...') });
       } else if (emailResult.success) {
-        console.log('[paymentComplete] e-mail delivered', { mpPaymentId, payerEmail, attachmentSent });
+        const resendId = emailResult.data?.data?.id || null;
+        console.log('[paymentComplete] e-mail delivered', { mpPaymentId, payerEmail: payerEmail?.replace(/@.*$/, '@...'), attachmentSent, resendId });
       }
     } catch (err) {
       console.error('[paymentComplete] unexpected e-mail error', { err, mpPaymentId, payerEmail });
