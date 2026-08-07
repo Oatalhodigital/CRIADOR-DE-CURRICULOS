@@ -113,6 +113,7 @@ export async function ensurePostgresTables() {
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payer_email TEXT`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_delivered_at TIMESTAMPTZ`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS pix_reminder_sent_at TIMESTAMPTZ`;
 
     await pgQuery`CREATE TABLE IF NOT EXISTS funnel_events (
       id BIGSERIAL PRIMARY KEY,
@@ -297,5 +298,51 @@ export async function getFunnelSummary() {
   } catch (err) {
     console.error('[postgres] getFunnelSummary failed', err);
     return { summary: [], revenue: { total_cents: 0, approved_count: 0, total_orders: 0 } };
+  }
+}
+
+export async function getPendingPixReminders(minutesSinceCreated = 15, limit = 100) {
+  try {
+    await ensurePostgresTables();
+    const result = await pgQuery`
+      SELECT
+        o.mp_payment_id,
+        o.payer_email,
+        o.lead_firestore_id,
+        o.plan,
+        o.amount_cents,
+        o.created_at,
+        fe.metadata
+      FROM orders o
+      LEFT JOIN funnel_events fe ON fe.lead_firestore_id = o.lead_firestore_id
+        AND fe.event_name = 'checkout_started'
+        AND fe.created_at >= o.created_at - INTERVAL '1 minute'
+      WHERE o.payment_method = 'pix'
+        AND o.status = 'pending'
+        AND o.pix_reminder_sent_at IS NULL
+        AND o.payer_email IS NOT NULL
+        AND o.created_at <= now() - ${minutesSinceCreated} * INTERVAL '1 minute'
+        AND o.created_at >= now() - INTERVAL '12 hours'
+      ORDER BY o.created_at ASC
+      LIMIT ${limit}
+    `;
+    return result.rows;
+  } catch (err) {
+    console.error('[postgres] getPendingPixReminders failed', err);
+    return [];
+  }
+}
+
+export async function markPixReminderSent(mpPaymentId: string, delivered = false) {
+  try {
+    await ensurePostgresTables();
+    const column = delivered ? 'pix_reminder_delivered_at' : 'pix_reminder_sent_at';
+    await pgQuery`
+      UPDATE orders
+      SET pix_reminder_sent_at = now()
+      WHERE mp_payment_id = ${mpPaymentId}
+    `;
+  } catch (err) {
+    console.error('[postgres] markPixReminderSent failed', { mpPaymentId, err });
   }
 }
