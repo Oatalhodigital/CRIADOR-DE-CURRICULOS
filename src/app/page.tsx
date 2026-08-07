@@ -16,6 +16,7 @@ import PricingCards from '@/components/PricingCards'
 import CompletionModal from '@/components/CompletionModal'
 import LeadCaptureModal from '@/components/LeadCaptureModal'
 import CheckoutModal from '@/components/CheckoutModal'
+import ExitSurvey from '@/components/ExitSurvey'
 import Logo from '@/components/Logo'
 import StepsNav from '@/components/StepsNav'
 import { trackCheckoutStarted, trackLeadCaptured, trackStepCompleted } from '@/lib/gtag'
@@ -305,6 +306,8 @@ export default function Home() {
         amount={checkoutAmount}
         plan={selectedPlan || undefined}
       />
+
+      <ExitSurvey paid={isPaid} />
     </div>
   )
 }

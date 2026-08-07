@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { User, Mail, Phone, ArrowRight, Loader2 } from 'lucide-react'
+import { User, Mail, Phone, ArrowRight, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { auth } from '@/lib/firebase'
 import { GoogleAuthProvider, onAuthStateChanged, signInWithRedirect } from 'firebase/auth'
 import {
@@ -10,6 +10,7 @@ import {
   markGoogleLoginPending,
   resolveRedirectOutcome,
 } from '@/lib/authRedirect'
+import { detectInAppBrowser, getInAppBrowserLabel } from '@/lib/inAppBrowser'
 
 interface LeadCaptureModalProps {
   isOpen: boolean
@@ -24,6 +25,7 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
+  const [inAppBrowser, setInAppBrowser] = useState<string | null>(null)
 
   const mountedRef = useRef(true)
   const resolvedRef = useRef(false)
@@ -54,6 +56,12 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
   useEffect(() => {
     mountedRef.current = true
+
+    const app = detectInAppBrowser()
+    if (app) {
+      setInAppBrowser(getInAppBrowserLabel(app))
+      console.log('[LeadCaptureModal] in-app browser detected', { app })
+    }
 
     // Se o usuário já está autenticado (ex.: voltou ao site e a sessão ainda
     // é válida), avança automaticamente sem exigir novo login.
@@ -244,6 +252,12 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       return
     }
 
+    if (inAppBrowser) {
+      setError(`Login com Google não funciona dentro do ${inAppBrowser}. Preencha o formulário abaixo ou abra este site no Chrome/Safari.`)
+      console.warn('[LeadCaptureModal] blocked Google login in in-app browser', { inAppBrowser })
+      return
+    }
+
     setGoogleLoading(true)
     setError('')
 
@@ -343,6 +357,18 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
               />
             </div>
           </div>
+
+          {inAppBrowser && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800 flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600" />
+              <div>
+                <p className="font-medium">Você está usando o navegador do {inAppBrowser}</p>
+                <p className="mt-0.5">
+                  Para uma experiência melhor e login com Google, toque nos três pontos no canto superior e escolha <strong>“Abrir no navegador”</strong>. Você também pode preencher o formulário abaixo e continuar por aqui.
+                </p>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div id="lead-error" role="alert" className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">

@@ -78,9 +78,14 @@ export async function ensurePostgresTables() {
       utm_campaign TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )`;
+    await pgQuery`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reengagement_resume_sent_at TIMESTAMPTZ`;
+    await pgQuery`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reengagement_survey_sent_at TIMESTAMPTZ`;
+
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_firestore_id ON leads(firestore_id)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC)`;
+    await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_reengagement_resume ON leads(reengagement_resume_sent_at)`;
+    await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_reengagement_survey ON leads(reengagement_survey_sent_at)`;
 
     await pgQuery`CREATE TABLE IF NOT EXISTS orders (
       id BIGSERIAL PRIMARY KEY,
@@ -127,6 +132,16 @@ export async function ensurePostgresTables() {
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_funnel_events_lead_firestore_id ON funnel_events(lead_firestore_id)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_funnel_events_event_name ON funnel_events(event_name)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_funnel_events_created_at ON funnel_events(created_at DESC)`;
+
+    await pgQuery`CREATE TABLE IF NOT EXISTS exit_feedback (
+      id BIGSERIAL PRIMARY KEY,
+      reason TEXT,
+      comment TEXT,
+      url TEXT,
+      paid BOOLEAN DEFAULT FALSE,
+      user_agent TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`;
 
     await pgQuery`CREATE OR REPLACE VIEW funnel_conversion_summary AS
       SELECT
@@ -336,7 +351,6 @@ export async function getPendingPixReminders(minutesSinceCreated = 15, limit = 1
 export async function markPixReminderSent(mpPaymentId: string, delivered = false) {
   try {
     await ensurePostgresTables();
-    const column = delivered ? 'pix_reminder_delivered_at' : 'pix_reminder_sent_at';
     await pgQuery`
       UPDATE orders
       SET pix_reminder_sent_at = now()
@@ -344,5 +358,98 @@ export async function markPixReminderSent(mpPaymentId: string, delivered = false
     `;
   } catch (err) {
     console.error('[postgres] markPixReminderSent failed', { mpPaymentId, err });
+  }
+}
+
+export async function recordExitFeedback(data: {
+  reason: string;
+  comment?: string;
+  url?: string;
+  paid: boolean;
+  userAgent?: string;
+}) {
+  try {
+    await ensurePostgresTables();
+    await pgQuery`
+      INSERT INTO exit_feedback (reason, comment, url, paid, user_agent)
+      VALUES (${data.reason}, ${data.comment || null}, ${data.url || null}, ${data.paid}, ${data.userAgent || null})
+    `;
+  } catch (err) {
+    console.error('[postgres] recordExitFeedback failed', err);
+  }
+}
+
+export async function getLeadsForReengagement(stage: 'resume' | 'survey', limit = 100) {
+  try {
+    await ensurePostgresTables();
+    const hours = stage === 'resume' ? 2 : 72;
+    const result = stage === 'resume'
+      ? await pgQuery`
+          SELECT
+            l.id,
+            l.firestore_id,
+            l.email,
+            l.name,
+            l.created_at,
+            l.whatsapp
+          FROM leads l
+          WHERE l.consent_marketing = TRUE
+            AND l.email IS NOT NULL
+            AND l.created_at <= now() - ${hours} * INTERVAL '1 hour'
+            AND l.created_at >= now() - INTERVAL '7 days'
+            AND NOT EXISTS (
+              SELECT 1 FROM orders o
+              WHERE o.lead_id = l.id AND o.status = 'approved'
+            )
+            AND l.reengagement_resume_sent_at IS NULL
+          ORDER BY l.created_at ASC
+          LIMIT ${limit}
+        `
+      : await pgQuery`
+          SELECT
+            l.id,
+            l.firestore_id,
+            l.email,
+            l.name,
+            l.created_at,
+            l.whatsapp
+          FROM leads l
+          WHERE l.consent_marketing = TRUE
+            AND l.email IS NOT NULL
+            AND l.created_at <= now() - ${hours} * INTERVAL '1 hour'
+            AND l.created_at >= now() - INTERVAL '7 days'
+            AND NOT EXISTS (
+              SELECT 1 FROM orders o
+              WHERE o.lead_id = l.id AND o.status = 'approved'
+            )
+            AND l.reengagement_survey_sent_at IS NULL
+          ORDER BY l.created_at ASC
+          LIMIT ${limit}
+        `;
+    return result.rows;
+  } catch (err) {
+    console.error('[postgres] getLeadsForReengagement failed', { stage, err });
+    return [];
+  }
+}
+
+export async function markReengagementSent(leadId: number, stage: 'resume' | 'survey', delivered = false) {
+  try {
+    await ensurePostgresTables();
+    if (stage === 'resume') {
+      await pgQuery`
+        UPDATE leads
+        SET reengagement_resume_sent_at = now()
+        WHERE id = ${leadId}
+      `;
+    } else {
+      await pgQuery`
+        UPDATE leads
+        SET reengagement_survey_sent_at = now()
+        WHERE id = ${leadId}
+      `;
+    }
+  } catch (err) {
+    console.error('[postgres] markReengagementSent failed', { leadId, stage, err });
   }
 }
