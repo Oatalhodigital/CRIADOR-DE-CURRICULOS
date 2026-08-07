@@ -264,10 +264,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
 
     // Fallback final: abre o link direto em nova aba. Em muitos navegadores
-    // mobile isso abre o visualizador de PDF nativo.
+    // mobile isso abre o visualizador de PDF nativo. Se conseguir abrir,
+    // consideramos a entrega bem-sucedida e não mostramos erro.
     try {
-      console.log('[CheckoutModal] tentando fallback window.open para PDF', { url });
-      window.open(url, '_blank');
+      const safeUrl = typeof window === 'undefined' ? url : toSameOriginPath(url);
+      const opened = window.open(safeUrl, '_blank');
+      if (opened) {
+        console.log('[CheckoutModal] fallback window.open aberto', { safeUrl });
+        return;
+      }
+      console.warn('[CheckoutModal] window.open retornou null (provável bloqueio de popup)', { safeUrl });
     } catch (openErr) {
       console.error('[CheckoutModal] fallback window.open falhou', openErr);
     }
@@ -790,6 +796,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   onClick={async () => {
                     try {
                       await downloadPdf(downloadUrl, 0);
+                      setDeliveryError(null);
                     } catch (err) {
                       console.error('[CheckoutModal] download manual falhou', err);
                       const baseMessage = err instanceof Error ? err.message : 'Não foi possível baixar o arquivo. Tente novamente mais tarde.';
