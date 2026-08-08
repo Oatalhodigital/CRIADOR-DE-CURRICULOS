@@ -23,8 +23,8 @@ export function detectInAppBrowser(): InAppBrowser {
   const lower = ua.toLowerCase();
 
   if (lower.includes('instagram')) return 'instagram';
-  if (lower.includes('fb_iab') || lower.includes('fb_an') || lower.includes('facebook')) {
-    // fb_iab = Facebook In-App Browser; fb_an = Facebook App for Android
+  if (lower.includes('fb_iab') || lower.includes('fb_an') || lower.includes('fbav') || lower.includes('fban') || lower.includes('facebook')) {
+    // fb_iab = Facebook In-App Browser; fban/fbav = Facebook App signatures
     return 'facebook';
   }
   if (lower.includes('tiktok') || lower.includes('bytedefault') || lower.includes('musical_ly')) return 'tiktok';
