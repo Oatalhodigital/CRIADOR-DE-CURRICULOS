@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { trackEvent } from '@/lib/gtag';
 
 const REASONS = [
   { id: 'price', label: 'Preço' },
@@ -80,6 +81,7 @@ export default function ExitSurvey({ paid }: { paid: boolean }) {
 
   const submit = async () => {
     const payload = { reason, comment, url: window.location.href, paid: false };
+    trackEvent('exit_feedback', { reason, paid: false });
     try {
       await fetch('/api/exit-feedback', {
         method: 'POST',

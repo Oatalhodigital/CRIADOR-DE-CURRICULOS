@@ -433,6 +433,35 @@ export async function getLeadsForReengagement(stage: 'resume' | 'survey', limit 
   }
 }
 
+export async function getApprovedOrdersWithLeads(days = 28) {
+  try {
+    await ensurePostgresTables();
+    const result = await pgQuery`
+      SELECT
+        o.id,
+        o.lead_firestore_id,
+        o.plan,
+        o.amount_cents,
+        o.payment_method,
+        o.mp_payment_id,
+        o.status,
+        o.payer_email,
+        o.created_at,
+        l.name AS lead_name,
+        l.email AS lead_email
+      FROM orders o
+      LEFT JOIN leads l ON o.lead_firestore_id = l.firestore_id
+      WHERE o.status = 'approved'
+        AND o.created_at >= now() - ${days} * INTERVAL '1 day'
+      ORDER BY o.created_at DESC
+    `;
+    return result.rows;
+  } catch (err) {
+    console.error('[postgres] getApprovedOrdersWithLeads failed', err);
+    return [];
+  }
+}
+
 export async function markReengagementSent(leadId: number, stage: 'resume' | 'survey', delivered = false) {
   try {
     await ensurePostgresTables();
