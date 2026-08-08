@@ -96,10 +96,21 @@ export async function GET(
       }
     }
 
+    // Detecta se a requisição vem de navegação direta (iframe/in-app)
+    // para usar Content-Disposition inline em vez de attachment,
+    // permitindo visualização do PDF dentro do navegador in-app.
+    const secFetchDest = request.headers.get('sec-fetch-dest');
+    const userAgent = request.headers.get('user-agent') || '';
+    const isInAppBrowser = /Instagram|FBAN|FBAV|Messenger|TikTok|LinkedInApp|Pinterest|Snapchat/i.test(userAgent);
+    const isIframe = secFetchDest === 'iframe' || secFetchDest === 'embed';
+    const useInline = isIframe || isInAppBrowser;
+
     return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="curriculo.pdf"',
+        'Content-Disposition': useInline
+          ? 'inline; filename="curriculo.pdf"'
+          : 'attachment; filename="curriculo.pdf"',
         'Content-Length': buffer.length.toString(),
       },
     });
