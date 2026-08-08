@@ -156,14 +156,50 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const copyPixCode = async () => {
     if (!paymentData?.qr_code) return;
+    const code = paymentData.qr_code;
+
+    // Tenta clipboard API primeiro (funciona em Chrome/Safari normais).
     try {
-      await navigator.clipboard.writeText(paymentData.qr_code);
+      await navigator.clipboard.writeText(code);
       setPixCopied(true);
       setTimeout(() => {
         if (isMountedRef.current) setPixCopied(false);
       }, 2500);
+      return;
     } catch (err) {
-      console.error('CheckoutModal: copy PIX failed', err);
+      console.warn('CheckoutModal: clipboard API failed, trying fallback', err);
+    }
+
+    // Fallback: cria textarea temporário, seleciona e executa copy.
+    // Funciona na maioria dos navegadores in-app (Instagram/Facebook).
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = code;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (ok) {
+        setPixCopied(true);
+        setTimeout(() => {
+          if (isMountedRef.current) setPixCopied(false);
+        }, 2500);
+        return;
+      }
+    } catch (fallbackErr) {
+      console.error('CheckoutModal: copy PIX fallback failed', fallbackErr);
+    }
+
+    // Último recurso: abre prompt para o usuário copiar manualmente
+    // (ainda dentro do navegador in-app, sem sair do app).
+    try {
+      window.prompt('Copie o código PIX abaixo:', code);
+    } catch {
+      // Alguns navegadores in-app podem bloquear prompt
     }
   };
 
@@ -238,12 +274,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         a.click();
         document.body.removeChild(a);
 
-        // Em iOS/Safari o clique pode não iniciar download; aguardamos um
-        // pequeno instante e, se o documento ainda estiver aberto,
-        // abrimos em nova aba como fallback.
+        // Em iOS/Safari ou navegadores in-app o clique pode não iniciar
+        // download; aguardamos um pequeno instante e, se o documento ainda
+        // estiver aberto, abrimos em nova aba como fallback.
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        if (isIOS || isSafari) {
+        const isInAppBrowser = /Instagram|FBAN|FBAV|Messenger|TikTok|LinkedInApp|Pinterest|Snapchat/i.test(navigator.userAgent);
+        if (isIOS || isSafari || isInAppBrowser) {
           setTimeout(() => {
             window.open(blobUrl, '_blank');
           }, 500);
@@ -263,19 +300,47 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
     }
 
-    // Fallback final: abre o link direto em nova aba. Em muitos navegadores
-    // mobile isso abre o visualizador de PDF nativo. Se conseguir abrir,
-    // consideramos a entrega bem-sucedida e não mostramos erro.
+    // Fallback final: tenta abrir o PDF para visualização dentro do
+    // próprio navegador in-app. Primeiro tenta window.open (nova aba);
+    // se bloqueado, injeta um iframe oculto para forçar visualização inline.
     try {
-      const safeUrl = typeof window === 'undefined' ? url : toSameOriginPath(url);
-      const opened = window.open(safeUrl, '_blank');
+      const fallbackUrl = typeof window === 'undefined' ? url : toSameOriginPath(url);
+      const opened = window.open(fallbackUrl, '_blank');
       if (opened) {
-        console.log('[CheckoutModal] fallback window.open aberto', { safeUrl });
+        console.log('[CheckoutModal] fallback window.open aberto', { fallbackUrl });
         return;
       }
-      console.warn('[CheckoutModal] window.open retornou null (provável bloqueio de popup)', { safeUrl });
+      console.warn('[CheckoutModal] window.open retornou null (provável bloqueio de popup), tentando iframe', { fallbackUrl });
+
+      // iframe inline: funciona em muitos navegadores in-app que bloqueiam
+      // popups mas permitem iframes same-origin. Força o navegador a
+      // renderizar o PDF dentro da própria página.
+      const iframe = document.createElement('iframe');
+      iframe.src = fallbackUrl;
+      iframe.style.position = 'fixed';
+      iframe.style.top = '0';
+      iframe.style.left = '0';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.zIndex = '9999';
+      iframe.style.background = 'white';
+      iframe.title = 'Visualização do currículo em PDF';
+      document.body.appendChild(iframe);
+
+      // Remove o iframe após 60 segundos para não poluir o DOM.
+      setTimeout(() => {
+        try {
+          document.body.removeChild(iframe);
+        } catch {
+          // já foi removido
+        }
+      }, 60000);
+
+      console.log('[CheckoutModal] fallback iframe inserido para visualização inline', { fallbackUrl });
+      return;
     } catch (openErr) {
-      console.error('[CheckoutModal] fallback window.open falhou', openErr);
+      console.error('[CheckoutModal] fallback window.open/iframe falhou', openErr);
     }
 
     throw new Error(getDownloadErrorMessage(lastError, lastDetails) || 'Não foi possível iniciar o download automático.');
