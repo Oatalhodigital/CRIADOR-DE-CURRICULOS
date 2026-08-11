@@ -129,6 +129,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [cardPaymentId, setCardPaymentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [pixConfirmed, setPixConfirmed] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'failed'>('pending');
@@ -150,6 +151,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setDownloadUrl(null);
     setEmailSent(false);
     setDeliveryError(null);
+    setPixConfirmed(false);
     pollCountRef.current = 0;
     purchaseTrackedRef.current = false;
   };
@@ -579,10 +581,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }, [paymentMethod, amount]);
 
   useEffect(() => {
-    if (isOpen && paymentMethod === 'pix' && !paymentData && resume.personalInfo.email) {
+    if (isOpen && paymentMethod === 'pix' && pixConfirmed && !paymentData && resume.personalInfo.email) {
       createPayment();
     }
-  }, [isOpen, paymentMethod, paymentData, resume.personalInfo.email, createPayment]);
+  }, [isOpen, paymentMethod, pixConfirmed, paymentData, resume.personalInfo.email, createPayment]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -734,6 +736,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {!isLoading && paymentStatus !== 'approved' && paymentMethod === 'pix' && !paymentData && !pixConfirmed && (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-gray-700">
+              <p className="font-semibold text-emerald-800 mb-1">Pagamento via PIX</p>
+              <p>Toque no botão abaixo para gerar o QR Code e pagar na hora.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPixConfirmed(true)}
+              className="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2"
+            >
+              Gerar QR Code PIX
+            </button>
           </div>
         )}
 
