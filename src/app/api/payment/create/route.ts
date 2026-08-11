@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { insertOrderPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
 import { getNotificationUrl } from '@/lib/mercadoPago';
+import { trackMetaInitiateCheckoutServerSide } from '@/lib/metaConversionsApi';
+import { getAppUrl } from '@/lib/email';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 15000, label = 'payment'): Promise<T> =>
   Promise.race([
@@ -70,6 +72,18 @@ export async function POST(request: NextRequest) {
     } catch (postgresErr) {
       console.error('[api/payment/create] analytics write failed', postgresErr);
     }
+
+    // CAPI InitiateCheckout event — fire-and-forget
+    void trackMetaInitiateCheckoutServerSide({
+      value: amount,
+      plan: plan || 'unknown',
+      sourceUrl: getAppUrl(),
+      clientIp: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+      fbp: request.cookies.get('_fbp')?.value,
+      fbc: request.cookies.get('_fbc')?.value,
+      eventId: result.id ? `checkout-${result.id}` : undefined,
+    }).catch((err) => console.error('[api/payment/create] CAPI InitiateCheckout failed', err));
 
     return NextResponse.json({
       id: String(result.id),

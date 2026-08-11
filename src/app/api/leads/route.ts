@@ -3,6 +3,8 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase-admin';
 import { insertLeadPostgres, insertFunnelEventPostgres } from '@/lib/postgres';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { trackMetaLeadServerSide } from '@/lib/metaConversionsApi';
+import { getAppUrl } from '@/lib/email';
 
 const withTimeout = <T,>(promise: Promise<T>, ms = 6000, label = 'operation'): Promise<T> =>
   Promise.race([
@@ -90,6 +92,21 @@ export async function POST(request: NextRequest) {
     } catch (postgresErr) {
       console.error('[api/leads] analytics write failed', postgresErr);
     }
+
+    // CAPI Lead event — fire-and-forget, nao pode bloquear resposta
+    const nameParts = (name || '').trim().split(/\s+/);
+    void trackMetaLeadServerSide({
+      email,
+      phone: whatsapp,
+      firstName: nameParts[0],
+      lastName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined,
+      sourceUrl: getAppUrl(),
+      clientIp,
+      userAgent: request.headers.get('user-agent') || undefined,
+      fbp: request.cookies.get('_fbp')?.value,
+      fbc: request.cookies.get('_fbc')?.value,
+      eventId: leadId,
+    }).catch((err) => console.error('[api/leads] CAPI Lead failed', err));
 
     console.log('[api/leads] saved', { leadId, email, durationMs: Date.now() - start });
     return NextResponse.json({ success: true, leadId }, { status: 200 });

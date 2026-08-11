@@ -42,7 +42,7 @@ type MetaEvent = {
   event_source_url?: string;
   action_source: 'website';
   user_data: Record<string, string | undefined>;
-  custom_data: Record<string, string | number | undefined>;
+  custom_data: Record<string, string | number | string[] | undefined>;
 };
 
 async function sendEvents(events: MetaEvent[]) {
@@ -77,6 +77,94 @@ async function sendEvents(events: MetaEvent[]) {
     console.error('[meta capi] network error', err);
     return { success: false, error: err instanceof Error ? err.message : 'network error' };
   }
+}
+
+export async function trackMetaLeadServerSide({
+  email,
+  phone,
+  firstName,
+  lastName,
+  sourceUrl,
+  fbp,
+  fbc,
+  clientIp,
+  userAgent,
+  eventId,
+}: {
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  sourceUrl?: string;
+  fbp?: string;
+  fbc?: string;
+  clientIp?: string;
+  userAgent?: string;
+  eventId?: string;
+}) {
+  const event: MetaEvent = {
+    event_name: 'Lead',
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: eventId,
+    event_source_url: sourceUrl,
+    action_source: 'website',
+    user_data: {
+      em: hashEmail(email),
+      ph: phone ? hashPhone(phone) : undefined,
+      fn: firstName ? sha256(firstName.toLowerCase().trim()) : undefined,
+      ln: lastName ? sha256(lastName.toLowerCase().trim()) : undefined,
+      fbp,
+      fbc,
+      client_ip_address: clientIp,
+      client_user_agent: userAgent,
+    },
+    custom_data: {},
+  };
+
+  return sendEvents([event]);
+}
+
+export async function trackMetaInitiateCheckoutServerSide({
+  value,
+  plan,
+  sourceUrl,
+  fbp,
+  fbc,
+  clientIp,
+  userAgent,
+  eventId,
+}: {
+  value: number;
+  plan: string;
+  sourceUrl?: string;
+  fbp?: string;
+  fbc?: string;
+  clientIp?: string;
+  userAgent?: string;
+  eventId?: string;
+}) {
+  const event: MetaEvent = {
+    event_name: 'InitiateCheckout',
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: eventId,
+    event_source_url: sourceUrl,
+    action_source: 'website',
+    user_data: {
+      fbp,
+      fbc,
+      client_ip_address: clientIp,
+      client_user_agent: userAgent,
+    },
+    custom_data: {
+      value,
+      currency: 'BRL',
+      content_ids: [plan],
+      content_type: 'product',
+      num_items: 1,
+    },
+  };
+
+  return sendEvents([event]);
 }
 
 export async function trackMetaPurchaseServerSide({

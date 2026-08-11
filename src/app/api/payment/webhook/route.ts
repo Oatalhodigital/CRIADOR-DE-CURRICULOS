@@ -98,6 +98,12 @@ export async function POST(request: NextRequest) {
           await finalizePaymentDelivery({
             mpPaymentId: String(paymentId),
             email: payerEmail,
+            metaContext: {
+              fbp: undefined,
+              fbc: undefined,
+              clientIp: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || undefined,
+              userAgent: request.headers.get('user-agent') || undefined,
+            },
           });
         } catch (deliveryErr) {
           console.error('[api/payment/webhook] finalizePaymentDelivery failed', deliveryErr);

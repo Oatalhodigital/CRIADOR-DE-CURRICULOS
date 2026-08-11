@@ -92,7 +92,13 @@ export default function Home() {
   const handleLeadCaptureComplete = (leadData: { name: string; email: string; whatsapp: string }) => {
     setShowLeadCapture(false)
     trackLeadCaptured()
-    trackMetaLead()
+    const nameParts = leadData.name.trim().split(/\s+/)
+    trackMetaLead({
+      email: leadData.email,
+      phone: leadData.whatsapp,
+      firstName: nameParts[0],
+      lastName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined,
+    })
     updatePersonalInfo({
       ...resume.personalInfo,
       fullName: leadData.name,
