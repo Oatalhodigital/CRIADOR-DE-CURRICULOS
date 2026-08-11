@@ -2,7 +2,8 @@
 
 import { Resume, Experience, Education, Skill } from '@/types/resume';
 import { useEffect, useRef, useState } from 'react';
-import { Lock, Shield } from 'lucide-react';
+import { Lock, Shield, Download } from 'lucide-react';
+import { downloadPdf } from '@/lib/downloadPdf';
 
 const WATERMARK_TEXT = 'PRÉVIA · Criador de Currículo';
 
@@ -271,13 +272,21 @@ const ResumePreview = ({
 
       {isPaid && paymentId && (
         <div className="absolute top-4 right-4 z-20">
-          <a
-            href={`/api/download/${paymentId}`}
-            download
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await downloadPdf(`/api/download/${paymentId}`, 2);
+              } catch (err) {
+                console.error('[ResumePreview] download failed', err);
+                alert('Não foi possível baixar o PDF. Tente novamente ou verifique seu e-mail — o PDF foi enviado por lá.');
+              }
+            }}
             className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow transition-colors"
           >
+            <Download className="w-4 h-4" />
             Baixar PDF
-          </a>
+          </button>
         </div>
       )}
     </div>

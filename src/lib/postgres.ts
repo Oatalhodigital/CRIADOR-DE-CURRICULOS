@@ -112,8 +112,13 @@ export async function ensurePostgresTables() {
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_orders_mp_payment_id ON orders(mp_payment_id)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_orders_lead_firestore_id ON orders(lead_firestore_id)`;
 
-    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS downloads_allowed INTEGER NOT NULL DEFAULT 1`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS downloads_allowed INTEGER NOT NULL DEFAULT 10`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS downloads_used INTEGER NOT NULL DEFAULT 0`;
+
+    // Atualiza orders existentes que ainda tem o limite antigo (1, 2 ou 3)
+    await pgQuery`UPDATE orders SET downloads_allowed = 10 WHERE downloads_allowed = 1 AND plan = 'single'`;
+    await pgQuery`UPDATE orders SET downloads_allowed = 20 WHERE downloads_allowed = 2 AND plan = 'weekly'`;
+    await pgQuery`UPDATE orders SET downloads_allowed = 30 WHERE downloads_allowed = 3 AND plan = 'monthly'`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS resume_snapshot JSONB`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payer_email TEXT`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ`;
@@ -173,8 +178,8 @@ export async function insertLeadPostgres(data: LeadInsertData) {
 }
 
 export function getDownloadsForPlan(plan?: string): number {
-  const map: Record<string, number> = { single: 1, weekly: 2, monthly: 3 };
-  return map[plan || ''] || 1;
+  const map: Record<string, number> = { single: 10, weekly: 20, monthly: 30 };
+  return map[plan || ''] || 10;
 }
 
 export async function insertOrderPostgres(data: OrderInsertData) {

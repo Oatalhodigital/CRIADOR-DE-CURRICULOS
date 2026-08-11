@@ -14,10 +14,35 @@ function isBrowserNavigation(request: NextRequest): boolean {
   return accept.includes('text/html') && !accept.includes('application/json');
 }
 
-function getRedirectResponse(request: NextRequest, search = '') {
-  const url = new URL('/', request.url);
-  if (search) url.search = search;
-  return NextResponse.redirect(url);
+function htmlErrorResponse(title: string, message: string, request: NextRequest) {
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${title}</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f9fafb; color: #111827; }
+  .card { max-width: 420px; padding: 2rem; text-align: center; }
+  .icon { font-size: 3rem; margin-bottom: 1rem; }
+  h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
+  p { color: #6b7280; font-size: 0.95rem; line-height: 1.5; }
+  a { display: inline-block; margin-top: 1.5rem; color: #059669; font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📄</div>
+    <h1>${title}</h1>
+    <p>${message}</p>
+    <a href="/">Voltar ao início</a>
+  </div>
+</body>
+</html>`;
+  return new NextResponse(html, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
 }
 
 async function getResumeFromOrder(order: any): Promise<Resume | null> {
@@ -42,30 +67,30 @@ export async function GET(
     ({ id } = await params);
 
     if (!id) {
-      if (isBrowserNavigation(request)) return getRedirectResponse(request);
+      if (isBrowserNavigation(request)) return htmlErrorResponse('Download indisponível', 'O link de download não contém um identificador válido. Verifique o link recebido por e-mail ou acesse sua conta.', request);
       return NextResponse.json({ error: 'ID do pagamento é obrigatório.' }, { status: 400 });
     }
 
     const order = await getOrderByMpPaymentId(id);
 
     if (!order) {
-      if (isBrowserNavigation(request)) return getRedirectResponse(request);
+      if (isBrowserNavigation(request)) return htmlErrorResponse('Pedido não encontrado', 'Não encontramos um pedido associado a este link. O pagamento pode ainda estar sendo processado — tente novamente em alguns instantes.', request);
       return NextResponse.json({ error: 'Pedido não encontrado.' }, { status: 404 });
     }
 
     if (order.status !== 'approved') {
-      if (isBrowserNavigation(request)) return getRedirectResponse(request);
+      if (isBrowserNavigation(request)) return htmlErrorResponse('Pagamento pendente', 'Seu pagamento ainda não foi confirmado. Aguarde alguns instantes e tente novamente.', request);
       return NextResponse.json({ error: 'Pagamento ainda não aprovado.' }, { status: 402 });
     }
 
     if (order.downloads_used >= order.downloads_allowed) {
-      if (isBrowserNavigation(request)) return getRedirectResponse(request, 'error=download_limit');
+      if (isBrowserNavigation(request)) return htmlErrorResponse('Limite de downloads atingido', 'Você já baixou seu currículo o número máximo de vezes. Verifique seu e-mail — o PDF foi enviado por lá também.', request);
       return NextResponse.json({ error: 'Limite de downloads atingido.' }, { status: 403 });
     }
 
     const resume = await getResumeFromOrder(order);
     if (!resume) {
-      if (isBrowserNavigation(request)) return getRedirectResponse(request);
+      if (isBrowserNavigation(request)) return htmlErrorResponse('Currículo não encontrado', 'Não conseguimos localizar os dados do seu currículo. Entre em contato com o suporte se o problema persistir.', request);
       return NextResponse.json({ error: 'Currículo não encontrado para este pagamento.' }, { status: 404 });
     }
 
@@ -73,7 +98,7 @@ export async function GET(
 
     const updated = await recordDownload(id);
     if (!updated) {
-      if (isBrowserNavigation(request)) return getRedirectResponse(request, 'error=download_limit');
+      if (isBrowserNavigation(request)) return htmlErrorResponse('Limite de downloads atingido', 'Você já baixou seu currículo o número máximo de vezes. Verifique seu e-mail — o PDF foi enviado por lá também.', request);
       return NextResponse.json({ error: 'Limite de downloads atingido.' }, { status: 403 });
     }
 
@@ -123,7 +148,7 @@ export async function GET(
       type: errorType,
       timestamp: new Date().toISOString(),
     });
-    if (isBrowserNavigation(request)) return getRedirectResponse(request);
+    if (isBrowserNavigation(request)) return htmlErrorResponse('Erro ao gerar PDF', 'Ocorreu um erro ao gerar seu currículo. Tente novamente em alguns instantes. Se o problema persistir, verifique seu e-mail — o PDF foi enviado por lá.', request);
     return NextResponse.json(
       {
         error: 'Falha ao gerar o PDF.',

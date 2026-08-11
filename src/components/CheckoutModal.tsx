@@ -6,6 +6,7 @@ import { useResume } from '../context/ResumeContext';
 import CardPaymentBrick, { CardPaymentData, getMercadoPagoDeviceId } from './CardPaymentBrick';
 import { trackPurchase } from '@/lib/gtag';
 import { trackMetaPurchase } from '@/lib/metaPixel';
+import { downloadPdf } from '@/lib/downloadPdf';
 
 interface PaymentData {
   id: string;
@@ -205,149 +206,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  const getDownloadErrorMessage = (err: any, responseDetails?: any): string => {
-    if (err instanceof Error) return err.message;
-    if (responseDetails?.error) return String(responseDetails.error);
-    return 'Não foi possível baixar o arquivo. Tente novamente mais tarde.';
-  };
-
-  // Converte uma URL do próprio site em relativa para evitar CORS entre
-  // www e não-www, ou entre punycode com/sem www. O navegador resolve a
-  // origem usando o domínio da página atual.
-  const toSameOriginPath = (url: string): string => {
-    try {
-      const parsed = new URL(url, window.location.href);
-      // Se o host for o mesmo da página, envia apenas o caminho.
-      if (parsed.hostname === window.location.hostname) {
-        return parsed.pathname + parsed.search;
-      }
-    } catch {
-      // Não conseguiu parsear; mantém como veio.
-    }
-    return url;
-  };
-
-  const downloadPdf = async (url: string, retries = 2): Promise<void> => {
-    const safeUrl = typeof window === 'undefined' ? url : toSameOriginPath(url);
-    let lastError = '';
-    let lastDetails: any = null;
-
-    for (let attempt = 1; attempt <= retries + 1; attempt++) {
-      try {
-        console.log('[CheckoutModal] iniciando download de PDF', { attempt, url: safeUrl, original: url, timestamp: new Date().toISOString() });
-        const res = await fetchWithTimeout(
-          safeUrl,
-          { headers: { 'X-Requested-With': 'checkout-autodownload' } },
-          20000
-        );
-
-        console.log('[CheckoutModal] resposta do download', {
-          attempt,
-          status: res.status,
-          contentType: res.headers.get('content-type'),
-          contentLength: res.headers.get('content-length'),
-          url,
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          lastDetails = data;
-          throw new Error(data.error || `Erro ${res.status} ao baixar PDF.`);
-        }
-
-        const contentType = res.headers.get('content-type') || '';
-        const blob = await res.blob();
-        console.log('[CheckoutModal] blob recebido', { attempt, size: blob.size, contentType });
-
-        if (blob.size === 0) {
-          throw new Error('O arquivo PDF retornou vazio.');
-        }
-
-        const blobUrl = URL.createObjectURL(blob);
-
-        // Tenta download via âncora (funciona bem em desktop/Chrome Android).
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = 'curriculo.pdf';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        // Em iOS/Safari ou navegadores in-app o clique pode não iniciar
-        // download; aguardamos um pequeno instante e, se o documento ainda
-        // estiver aberto, abrimos em nova aba como fallback.
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        const isInAppBrowser = /Instagram|FBAN|FBAV|Messenger|TikTok|LinkedInApp|Pinterest|Snapchat/i.test(navigator.userAgent);
-        if (isIOS || isSafari || isInAppBrowser) {
-          setTimeout(() => {
-            window.open(blobUrl, '_blank');
-          }, 500);
-        }
-
-        // Libera o objeto URL após tempo suficiente para iOS abrir.
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-        console.log('[CheckoutModal] download de PDF concluído', { attempt });
-        return;
-      } catch (err: any) {
-        lastError = err instanceof Error ? err.message : String(err);
-        console.error(`[CheckoutModal] tentativa ${attempt} de download falhou`, { error: lastError, details: lastDetails, url });
-
-        const isNetworkError = err instanceof TypeError || err?.name === 'AbortError' || lastError.toLowerCase().includes('network');
-        if (!isNetworkError || attempt > retries) break;
-        await sleep(1000 * attempt);
-      }
-    }
-
-    // Fallback final: tenta abrir o PDF para visualização dentro do
-    // próprio navegador in-app. Primeiro tenta window.open (nova aba);
-    // se bloqueado, injeta um iframe oculto para forçar visualização inline.
-    try {
-      const fallbackUrl = typeof window === 'undefined' ? url : toSameOriginPath(url);
-      const opened = window.open(fallbackUrl, '_blank');
-      if (opened) {
-        console.log('[CheckoutModal] fallback window.open aberto', { fallbackUrl });
-        return;
-      }
-      console.warn('[CheckoutModal] window.open retornou null (provável bloqueio de popup), tentando iframe', { fallbackUrl });
-
-      // iframe inline: funciona em muitos navegadores in-app que bloqueiam
-      // popups mas permitem iframes same-origin. Força o navegador a
-      // renderizar o PDF dentro da própria página.
-      const iframe = document.createElement('iframe');
-      iframe.src = fallbackUrl;
-      iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '0';
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = 'none';
-      iframe.style.zIndex = '9999';
-      iframe.style.background = 'white';
-      iframe.title = 'Visualização do currículo em PDF';
-      document.body.appendChild(iframe);
-
-      // Remove o iframe após 60 segundos para não poluir o DOM.
-      setTimeout(() => {
-        try {
-          document.body.removeChild(iframe);
-        } catch {
-          // já foi removido
-        }
-      }, 60000);
-
-      console.log('[CheckoutModal] fallback iframe inserido para visualização inline', { fallbackUrl });
-      return;
-    } catch (openErr) {
-      console.error('[CheckoutModal] fallback window.open/iframe falhou', openErr);
-    }
-
-    throw new Error(getDownloadErrorMessage(lastError, lastDetails) || 'Não foi possível iniciar o download automático.');
-  };
-
   const isPurchaseTracked = (pid: string): boolean => {
     if (typeof window === 'undefined') return false;
     try {
@@ -439,7 +297,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           lastError = err instanceof Error ? err.message : String(err);
         }
 
-        if (attempt < 3) await sleep(2000 * attempt);
+        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
       }
 
       if (isMountedRef.current) {
