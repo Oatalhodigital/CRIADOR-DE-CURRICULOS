@@ -831,6 +831,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   publicKey={publicKey}
                   amount={amount}
                   email={resume.personalInfo.email}
+                  payerName={resume.personalInfo.fullName}
                   onSubmit={handleCardSubmit}
                   onError={handleCardError}
                 />

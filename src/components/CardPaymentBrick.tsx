@@ -19,6 +19,7 @@ interface CardPaymentBrickProps {
   publicKey: string;
   amount: number;
   email: string;
+  payerName?: string;
   onSubmit: (data: CardPaymentData) => void | Promise<void>;
   onError?: (error: any) => void;
 }
@@ -77,6 +78,7 @@ const CardPaymentBrick = ({
   publicKey,
   amount,
   email,
+  payerName,
   onSubmit,
   onError,
 }: CardPaymentBrickProps) => {
@@ -149,7 +151,13 @@ const CardPaymentBrick = ({
         const settings = {
           initialization: {
             amount,
-            payer: { email },
+            payer: {
+              email,
+              ...(payerName ? { firstName: payerName.split(' ')[0] } : {}),
+              ...(payerName && payerName.split(' ').length > 1
+                ? { lastName: payerName.split(' ').slice(1).join(' ') }
+                : {}),
+            },
           },
           callbacks: {
             onReady: () => {
@@ -160,6 +168,77 @@ const CardPaymentBrick = ({
               }
               console.log('[CardPaymentBrick] Brick pronto (onReady)');
               setLoading(false);
+
+              // --- Autofill detection ---
+              // Browser autofill (Chrome/Safari mobile) preenche os campos
+              // do Brick sem disparar eventos input/change, fazendo o SDK
+              // manter o estado de validação "Dado obrigatório" mesmo com
+              // valores presentes. Injetamos uma animação CSS que dispara
+              // no autofill e dispatchamos eventos para o SDK revalidar.
+              const container = document.getElementById('cardPaymentBrick_container');
+              if (!container) return;
+
+              const styleId = 'mp-brick-autofill-detect';
+              if (!document.getElementById(styleId)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                  @keyframes mpAutofillEnter { from {/**/} to {/**/} }
+                  #cardPaymentBrick_container input:-webkit-autofill {
+                    animation-name: mpAutofillEnter;
+                    animation-duration: 0.001s;
+                    animation-fill-mode: both;
+                  }
+                `;
+                document.head.appendChild(style);
+              }
+
+              const handleAutofill = (e: AnimationEvent) => {
+                if (e.animationName !== 'mpAutofillEnter') return;
+                const target = e.target as HTMLInputElement;
+                setTimeout(() => {
+                  target.dispatchEvent(new Event('input', { bubbles: true }));
+                  target.dispatchEvent(new Event('change', { bubbles: true }));
+                  console.log('[CardPaymentBrick] autofill detectado, eventos dispatched', {
+                    field: target.name || target.id || 'unknown',
+                    valueLength: target.value?.length,
+                  });
+                }, 50);
+              };
+
+              container.addEventListener('animationstart', handleAutofill);
+
+              // Fallback: checa periodicamente se inputs tem valor mas
+              // ainda nao foram "reconhecidos" pelo SDK. Compara com valor
+              // anterior para so disparar quando houver mudanca sem evento.
+              const lastValues = new Map<HTMLInputElement, string>();
+              const checkInterval = setInterval(() => {
+                if (!mountedRef.current) {
+                  clearInterval(checkInterval);
+                  return;
+                }
+                const inputs = container.querySelectorAll('input');
+                inputs.forEach((input) => {
+                  const lastVal = lastValues.get(input) || '';
+                  if (input.value && input.value !== lastVal) {
+                    lastValues.set(input, input.value);
+                    // Dispara eventos para o SDK revalidar
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                  } else if (!input.value) {
+                    lastValues.set(input, '');
+                  }
+                });
+              }, 800);
+
+              // Limpa o interval apos 30s (autofill ja deve ter ocorrido)
+              setTimeout(() => clearInterval(checkInterval), 30000);
+
+              // Cleanup no unmount
+              const origUnmount = window.cardPaymentBrickController?.unmount;
+              if (window.cardPaymentBrickController) {
+                window.cardPaymentBrickController._originalUnmount = origUnmount;
+              }
             },
             onSubmit: async (formData: CardPaymentData) => {
               try {
@@ -276,7 +355,7 @@ const CardPaymentBrick = ({
         window.cardPaymentBrickController = undefined;
       }
     };
-  }, [publicKey, amount, email, retryCount]);
+  }, [publicKey, amount, email, payerName, retryCount]);
 
   return (
     <div className="space-y-4">
