@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Clock, CheckCircle, AlertCircle, Download, Mail, Copy, Check } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
 import CardPaymentBrick, { CardPaymentData, getMercadoPagoDeviceId } from './CardPaymentBrick';
-import { trackPurchase } from '@/lib/gtag';
+import { trackPurchase, trackGoogleAdsConversion } from '@/lib/gtag';
 import { trackMetaPurchase } from '@/lib/metaPixel';
 import { downloadPdf } from '@/lib/downloadPdf';
 
@@ -272,6 +272,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 value: amount,
                 paymentMethod,
                 plan,
+              });
+              trackGoogleAdsConversion({
+                transactionId: paymentId,
+                value: amount,
               });
             }
 

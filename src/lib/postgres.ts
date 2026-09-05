@@ -7,6 +7,7 @@ interface LeadInsertData {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+  gclid?: string;
 }
 
 interface OrderInsertData {
@@ -80,6 +81,7 @@ export async function ensurePostgresTables() {
     )`;
     await pgQuery`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reengagement_resume_sent_at TIMESTAMPTZ`;
     await pgQuery`ALTER TABLE leads ADD COLUMN IF NOT EXISTS reengagement_survey_sent_at TIMESTAMPTZ`;
+    await pgQuery`ALTER TABLE leads ADD COLUMN IF NOT EXISTS gclid TEXT`;
 
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email)`;
     await pgQuery`CREATE INDEX IF NOT EXISTS idx_leads_firestore_id ON leads(firestore_id)`;
@@ -166,8 +168,8 @@ export async function insertLeadPostgres(data: LeadInsertData) {
   try {
     await ensurePostgresTables();
     const result = await pgQuery<{ id: number }>`
-      INSERT INTO leads (firestore_id, name, email, whatsapp, consent_marketing, utm_source, utm_medium, utm_campaign)
-      VALUES (${data.firestore_id}, ${data.name}, ${data.email}, ${data.whatsapp || null}, ${data.consent_marketing || false}, ${data.utm_source || null}, ${data.utm_medium || null}, ${data.utm_campaign || null})
+      INSERT INTO leads (firestore_id, name, email, whatsapp, consent_marketing, utm_source, utm_medium, utm_campaign, gclid)
+      VALUES (${data.firestore_id}, ${data.name}, ${data.email}, ${data.whatsapp || null}, ${data.consent_marketing || false}, ${data.utm_source || null}, ${data.utm_medium || null}, ${data.utm_campaign || null}, ${data.gclid || null})
       ON CONFLICT (firestore_id) DO NOTHING
       RETURNING id
     `;

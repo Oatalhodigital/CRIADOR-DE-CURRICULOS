@@ -7,6 +7,7 @@ import { LanguageProvider } from '@/context/LanguageContext'
 import { warnMissingEnvVars } from '@/lib/env-check'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import MetaPixel from '@/components/MetaPixel'
+import Footer from '@/components/Footer'
 
 const inter = Inter({ subsets: ['latin'] })
 warnMissingEnvVars()
@@ -34,6 +35,7 @@ export default function RootLayout({
             {children}
           </ResumeProvider>
         </LanguageProvider>
+        <Footer />
         <Analytics />
         <GoogleAnalytics />
         <MetaPixel />

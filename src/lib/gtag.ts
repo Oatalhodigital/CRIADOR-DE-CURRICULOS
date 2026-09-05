@@ -1,6 +1,8 @@
 export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ''
+export const GOOGLE_ADS_CONVERSION_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID || ''
 
 export const isGaEnabled = () => Boolean(GA_MEASUREMENT_ID)
+export const isGoogleAdsEnabled = () => Boolean(GOOGLE_ADS_CONVERSION_ID)
 
 type GtagParams = Record<string, string | number | boolean | undefined>
 
@@ -49,3 +51,27 @@ export const trackPurchase = (params: {
     payment_method: params.paymentMethod,
     plan: params.plan,
   })
+
+/**
+ * Dispara o evento de conversão do Google Ads.
+ * So deve ser chamado apos confirmacao real de pagamento aprovado pelo backend.
+ * Usa o mesmo padrao de deduplicacao por transactionId.
+ */
+export const trackGoogleAdsConversion = (params: {
+  transactionId?: string
+  value: number
+}) => {
+  if (typeof window === 'undefined' || !isGoogleAdsEnabled() || typeof window.gtag !== 'function') {
+    return
+  }
+  try {
+    window.gtag('event', 'conversion', {
+      send_to: GOOGLE_ADS_CONVERSION_ID,
+      value: params.value,
+      currency: 'BRL',
+      transaction_id: params.transactionId,
+    })
+  } catch (err) {
+    console.error('[gtag] Google Ads conversion failed', err)
+  }
+}

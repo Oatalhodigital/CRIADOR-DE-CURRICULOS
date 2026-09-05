@@ -11,6 +11,7 @@ import {
   resolveRedirectOutcome,
 } from '@/lib/authRedirect'
 import { detectInAppBrowser } from '@/lib/inAppBrowser'
+import { getGclid } from '@/lib/gclid'
 
 interface LeadCaptureModalProps {
   isOpen: boolean
@@ -197,7 +198,7 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
     setIsLoading(true)
 
-    const payload = { name, email, whatsapp, consentMarketing }
+    const payload = { name, email, whatsapp, consentMarketing, gclid: getGclid() }
     // Timeout de 7s no cliente (menor que o timeout server de 6s + margem de rede)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 7000)

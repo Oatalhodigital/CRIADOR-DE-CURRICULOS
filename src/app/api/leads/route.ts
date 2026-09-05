@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Corpo da requisição inválido.' }, { status: 400 });
     }
 
-    const { name, email, whatsapp, consentMarketing, utm_source, utm_medium, utm_campaign } = body || {};
+    const { name, email, whatsapp, consentMarketing, utm_source, utm_medium, utm_campaign, gclid } = body || {};
 
     if (!name || !email || !whatsapp) {
       console.warn('[api/leads] campos obrigatórios ausentes', { body });
@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
         utm_source: utm_source || null,
         utm_medium: utm_medium || null,
         utm_campaign: utm_campaign || null,
+        gclid: gclid || null,
       });
       await insertFunnelEventPostgres({
         lead_firestore_id: leadId,

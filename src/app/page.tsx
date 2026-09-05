@@ -21,6 +21,7 @@ import Logo from '@/components/Logo'
 import StepsNav from '@/components/StepsNav'
 import { trackCheckoutStarted, trackLeadCaptured, trackStepCompleted } from '@/lib/gtag'
 import { trackMetaInitiateCheckout, trackMetaLead, trackMetaStepCompleted } from '@/lib/metaPixel'
+import { captureGclid } from '@/lib/gclid'
 import { User, Briefcase, GraduationCap, Zap, FileText, ArrowRight, ArrowLeft, CreditCard, Globe } from 'lucide-react'
 
 type Step = 'personal' | 'experience' | 'education' | 'skills' | 'languages' | 'summary' | 'pricing'
@@ -62,6 +63,7 @@ export default function Home() {
   // O login com Google usa signInWithRedirect, que recarrega a pagina inteira.
   // Sem persistir a etapa do funil o usuario voltava sempre para a landing page.
   useIsomorphicLayoutEffect(() => {
+    captureGclid()
     try {
       const saved = sessionStorage.getItem(FUNNEL_STATE_KEY)
       if (!saved) return
