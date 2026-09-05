@@ -8,13 +8,37 @@ import { warnMissingEnvVars } from '@/lib/env-check'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
 import MetaPixel from '@/components/MetaPixel'
 import Footer from '@/components/Footer'
+import HomeJsonLd from '@/components/HomeJsonLd'
+import { getSiteUrl } from '@/lib/seo'
 
 const inter = Inter({ subsets: ['latin'] })
 warnMissingEnvVars()
 
+const siteUrl = getSiteUrl()
+
 export const metadata: Metadata = {
-  title: 'Criador de Currículos | LS Soluções Digitais',
-  description: 'Crie currículos profissionais otimizados para ATS em minutos com inteligência artificial.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Criador de Currículos com IA | LS Soluções Digitais',
+    template: '%s | Criador de Currículos',
+  },
+  description: 'Crie currículos profissionais otimizados para ATS em minutos com inteligência artificial. Modelos prontos, dicas por profissão e download em PDF.',
+  alternates: {
+    canonical: siteUrl,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    url: siteUrl,
+    siteName: 'Criador de Currículos',
+    title: 'Criador de Currículos com IA | LS Soluções Digitais',
+    description: 'Crie currículos profissionais otimizados para ATS em minutos com inteligência artificial.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Criador de Currículos com IA | LS Soluções Digitais',
+    description: 'Crie currículos profissionais otimizados para ATS em minutos com inteligência artificial.',
+  },
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
@@ -30,6 +54,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
+        <HomeJsonLd />
         <LanguageProvider>
           <ResumeProvider>
             {children}

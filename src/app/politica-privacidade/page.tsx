@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Política de Privacidade | Criador de Currículos',
-  description: 'Política de privacidade e tratamento de dados do Criador de Currículos.',
+  title: 'Política de Privacidade',
+  description: 'Política de privacidade e tratamento de dados pessoais (LGPD) do Criador de Currículos com IA.',
+  alternates: {
+    canonical: '/politica-privacidade',
+  },
 }
 
 export default function PrivacyPolicyPage() {

@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Política de Reembolso e Cancelamento | Criador de Currículos',
-  description: 'Política de reembolso, cancelamento e direito de arrependimento de 7 dias.',
+  title: 'Política de Reembolso e Cancelamento',
+  description: 'Política de reembolso, cancelamento e direito de arrependimento (CDC Art. 49) do Criador de Currículos.',
+  alternates: {
+    canonical: '/politica-reembolso',
+  },
 }
 
 export default function RefundPolicyPage() {

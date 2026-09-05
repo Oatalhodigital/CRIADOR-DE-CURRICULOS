@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Termos de Uso | Criador de Currículos',
-  description: 'Termos de uso do serviço Criador de Currículos.',
+  title: 'Termos de Uso',
+  description: 'Termos de uso do serviço Criador de Currículos com IA — regras de utilização, limitações e direitos do usuário.',
+  alternates: {
+    canonical: '/termos-uso',
+  },
 }
 
 export default function TermsPage() {
