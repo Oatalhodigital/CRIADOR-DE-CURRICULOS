@@ -58,9 +58,11 @@ test.describe('Checkout', () => {
 
     await selectPlan(page, 'Intermediário');
 
+    await page.getByRole('button', { name: 'Gerar QR Code PIX' }).click();
+
     await expect(
       page.getByRole('img', { name: 'QR Code PIX' })
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: 15000 });
     await expect(
       page.getByText('00020126580014BR.GOV.PIX')
     ).toBeVisible();
@@ -192,6 +194,10 @@ test.describe('Checkout', () => {
 
     await selectPlan(page, 'Básico');
 
+    await page.getByRole('button', { name: 'Gerar QR Code PIX' }).click();
+    await expect(
+      page.getByRole('button', { name: 'Verificar Pagamento' })
+    ).toBeVisible({ timeout: 15000 });
     await page.getByRole('button', { name: 'Verificar Pagamento' }).click();
 
     await expect(

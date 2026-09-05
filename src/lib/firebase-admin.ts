@@ -26,7 +26,9 @@ function getServiceAccount(): ServiceAccountLike | null {
         };
       }
     } catch (err) {
-      console.error('firebase-admin: FIREBASE_SERVICE_ACCOUNT_KEY não é um JSON válido', err);
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY !== '') {
+        console.error('firebase-admin: FIREBASE_SERVICE_ACCOUNT_KEY não é um JSON válido', err);
+      }
     }
   }
 
@@ -58,7 +60,11 @@ if (serviceAccount) {
     adminDb = null;
   }
 } else {
-  console.warn('firebase-admin: conta de serviço não configurada. Verifique FIREBASE_SERVICE_ACCOUNT_KEY ou FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
+  if (process.env.NODE_ENV !== 'production' && process.env.FIREBASE_SERVICE_ACCOUNT_KEY === '' && process.env.POSTGRES_URL === '') {
+    // Test environment — credentials intentionally left empty for mocked tests
+  } else {
+    console.warn('firebase-admin: conta de serviço não configurada. Verifique FIREBASE_SERVICE_ACCOUNT_KEY ou FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY.');
+  }
 }
 
 export { adminApp, adminDb };

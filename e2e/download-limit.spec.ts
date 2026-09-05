@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Download API behavior', () => {
-  test('browser navigation is redirected instead of raw JSON', async ({ request }) => {
+  test('browser navigation returns HTML error page instead of raw JSON', async ({ request }) => {
     const res = await request.get('/api/download/invalid-id', {
       headers: {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -11,11 +11,11 @@ test.describe('Download API behavior', () => {
       timeout: 60000,
     });
 
-    expect(res.status()).toBe(307);
-    const location = res.headers()['location'];
-    expect(location).toMatch(/\/(\?error=.*)?$/);
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('text/html');
     const body = await res.text();
-    expect(body).not.toContain('error');
+    expect(body).toContain('Pedido não encontrado');
+    expect(body).not.toMatch(/"error"\s*:/);
   });
 
   test('non-browser request receives JSON error', async ({ request }) => {
