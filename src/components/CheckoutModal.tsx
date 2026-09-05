@@ -52,6 +52,7 @@ const createCardPayment = async (
   plan?: string,
   payerName?: string
 ): Promise<CardPaymentResult> => {
+  const deviceId = await getMercadoPagoDeviceId();
   const res = await fetchWithTimeout('/api/payment/card', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -62,7 +63,7 @@ const createCardPayment = async (
       leadId,
       plan,
       payerName,
-      deviceId: getMercadoPagoDeviceId(),
+      deviceId,
     }),
   });
 

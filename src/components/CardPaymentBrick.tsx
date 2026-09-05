@@ -36,22 +36,23 @@ declare global {
  * pagamento (header X-meli-session-id) para melhorar a aprovação antifraude.
  * Em mobile o security.js pode demorar um pouco mais, então tenta esperar
  * antes de retornar vazio.
+ *
+ * Versão assíncrona: usa polling não-bloqueante com setTimeout para não
+ * congelar a thread principal do navegador.
  */
-export const getMercadoPagoDeviceId = (timeoutMs = 2000): string | undefined => {
+export const getMercadoPagoDeviceId = async (timeoutMs = 2000): Promise<string | undefined> => {
   if (typeof window === 'undefined') return undefined;
   if (window.MP_DEVICE_SESSION_ID) return window.MP_DEVICE_SESSION_ID;
 
-  // Em mobile a segurança pode não estar pronta no clique; tentamos extrair
-  // de forma síncrona em até timeoutMs (síncrono curto para não travar UI).
-  const start = Date.now();
-  while (!window.MP_DEVICE_SESSION_ID && Date.now() - start < timeoutMs) {
-    // busy-wait leve de 50ms por iteração
-    const wait = Date.now();
-    while (Date.now() - wait < 50) {
-      /* busy-wait sinalizador */
-    }
+  const pollInterval = 100;
+  const maxAttempts = Math.ceil(timeoutMs / pollInterval);
+
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    if (window.MP_DEVICE_SESSION_ID) return window.MP_DEVICE_SESSION_ID;
   }
-  return window.MP_DEVICE_SESSION_ID;
+
+  return undefined;
 };
 
 const loadScript = (src: string) =>

@@ -439,6 +439,17 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
           )}
         </form>
 
+        {isInApp && (
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+            <p className="font-semibold mb-1">Navegador do app detectado</p>
+            <p>
+              Para garantir que o login, o pagamento e o download do currículo funcionem
+              corretamente, toque no menu (⋮) e escolha <strong>"Abrir no navegador"</strong> ou
+              copie o link e cole no Chrome ou Safari.
+            </p>
+          </div>
+        )}
+
         <p className="text-center text-xs text-gray-500 mt-6">
           Ao continuar, você concorda com nossos Termos de Uso e Política de Privacidade
         </p>

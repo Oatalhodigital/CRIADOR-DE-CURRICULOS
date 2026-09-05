@@ -124,6 +124,7 @@ export async function ensurePostgresTables() {
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmation_email_delivered_at TIMESTAMPTZ`;
     await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS pix_reminder_sent_at TIMESTAMPTZ`;
+    await pgQuery`ALTER TABLE orders ADD COLUMN IF NOT EXISTS capi_purchase_sent_at TIMESTAMPTZ`;
 
     await pgQuery`CREATE TABLE IF NOT EXISTS funnel_events (
       id BIGSERIAL PRIMARY KEY,
@@ -255,6 +256,32 @@ export async function markConfirmationEmailSent(mpPaymentId: string, delivered =
     `;
   } catch (err) {
     console.error('[postgres] markConfirmationEmailSent failed', err);
+  }
+}
+
+export async function isCapiPurchaseSent(mpPaymentId: string): Promise<boolean> {
+  try {
+    await ensurePostgresTables();
+    const result = await pgQuery<{ capi_purchase_sent_at: Date | null }>`
+      SELECT capi_purchase_sent_at FROM orders WHERE mp_payment_id = ${mpPaymentId} LIMIT 1
+    `;
+    return Boolean(result.rows[0]?.capi_purchase_sent_at);
+  } catch (err) {
+    console.error('[postgres] isCapiPurchaseSent failed', err);
+    return false;
+  }
+}
+
+export async function markCapiPurchaseSent(mpPaymentId: string): Promise<void> {
+  try {
+    await ensurePostgresTables();
+    await pgQuery`
+      UPDATE orders
+      SET capi_purchase_sent_at = NOW(), updated_at = NOW()
+      WHERE mp_payment_id = ${mpPaymentId}
+    `;
+  } catch (err) {
+    console.error('[postgres] markCapiPurchaseSent failed', err);
   }
 }
 

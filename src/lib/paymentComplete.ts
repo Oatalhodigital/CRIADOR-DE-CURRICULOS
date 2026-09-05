@@ -7,6 +7,8 @@ import {
   setOrderPayerEmail,
   insertOrderPostgres,
   insertFunnelEventPostgres,
+  isCapiPurchaseSent,
+  markCapiPurchaseSent,
 } from './postgres';
 import { getAppUrl, sendPaymentConfirmationEmail } from './email';
 import { getPaymentStatusMessage, normalizePaymentMethod } from './mercadoPago';
@@ -205,16 +207,29 @@ export async function finalizePaymentDelivery({
   const userPhone = resume?.personalInfo?.phone;
 
   // Fire-and-forget: a falha do CAPI nao pode bloquear o download.
-  void trackMetaPurchaseServerSide({
-    paymentId: mpPaymentId,
-    value: amountReais,
-    plan: order?.plan,
-    paymentMethod: order?.payment_method,
-    email: userEmail,
-    phone: userPhone,
-    sourceUrl: getAppUrl(),
-    ...metaContext,
-  });
+  // Guarda de dedup: so envia se capi_purchase_sent_at for null.
+  void (async () => {
+    try {
+      const alreadySent = await isCapiPurchaseSent(mpPaymentId);
+      if (alreadySent) {
+        console.log('[paymentComplete] CAPI Purchase already sent, skipping', { mpPaymentId });
+        return;
+      }
+      await trackMetaPurchaseServerSide({
+        paymentId: mpPaymentId,
+        value: amountReais,
+        plan: order?.plan,
+        paymentMethod: order?.payment_method,
+        email: userEmail,
+        phone: userPhone,
+        sourceUrl: getAppUrl(),
+        ...metaContext,
+      });
+      await markCapiPurchaseSent(mpPaymentId);
+    } catch (err) {
+      console.error('[paymentComplete] CAPI Purchase failed', { error: err, mpPaymentId });
+    }
+  })();
 
   return {
     success: true,
