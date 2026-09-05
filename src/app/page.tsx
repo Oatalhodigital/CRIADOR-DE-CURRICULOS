@@ -65,6 +65,13 @@ export default function Home() {
   useIsomorphicLayoutEffect(() => {
     captureGclid()
     try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const profissao = params.get('profissao')
+        if (profissao) {
+          sessionStorage.setItem('preselectedProfession', profissao)
+        }
+      }
       const saved = sessionStorage.getItem(FUNNEL_STATE_KEY)
       if (!saved) return
       const parsed = JSON.parse(saved)

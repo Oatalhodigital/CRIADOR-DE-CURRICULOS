@@ -31,6 +31,17 @@ const ExperienceForm = () => {
     }
   }, [newExperience, setDraftExperience]);
 
+  // Pre-fill position from profession landing page (?profissao=...)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const preselected = sessionStorage.getItem('preselectedProfession')
+      if (preselected && !newExperience.position) {
+        setNewExperience((prev) => ({ ...prev, position: preselected }))
+        sessionStorage.removeItem('preselectedProfession')
+      }
+    }
+  }, []);
+
   const generateId = useCallback(() => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }, []);
