@@ -7,17 +7,31 @@ export default function HomeJsonLd() {
     applicationCategory: 'BusinessApplication',
     operatingSystem: 'Web',
     offers: {
-      '@type': 'Offer',
-      price: '7.90',
+      '@type': 'AggregateOffer',
       priceCurrency: 'BRL',
-      description: 'Plano Básico: 1 download do currículo em PDF',
-    },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      ratingCount: '83',
-      bestRating: '5',
-      worstRating: '1',
+      lowPrice: '7.90',
+      highPrice: '17.90',
+      offerCount: 3,
+      offers: [
+        {
+          '@type': 'Offer',
+          price: '7.90',
+          priceCurrency: 'BRL',
+          description: 'Plano Básico: 1 download do currículo em PDF',
+        },
+        {
+          '@type': 'Offer',
+          price: '12.49',
+          priceCurrency: 'BRL',
+          description: 'Plano Semanal: downloads ilimitados por 7 dias',
+        },
+        {
+          '@type': 'Offer',
+          price: '17.90',
+          priceCurrency: 'BRL',
+          description: 'Plano Mensal: downloads ilimitados por 30 dias',
+        },
+      ],
     },
     publisher: {
       '@type': 'Organization',
