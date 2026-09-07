@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useLayoutEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { useResume } from '@/context/ResumeContext'
 import { useLanguage } from '@/context/LanguageContext'
 import LanguageSelector from '@/components/LanguageSelector'
@@ -152,13 +152,13 @@ export default function Home() {
     trackMetaInitiateCheckout(plan, planAmount)
   }
 
-  const handlePaymentSuccess = (paymentId?: string) => {
+  const handlePaymentSuccess = useCallback((paymentId?: string) => {
     setIsPaid(true)
     setShowCheckout(true)
     if (paymentId) {
       setPaymentStatus(true, paymentId)
     }
-  }
+  }, [setPaymentStatus])
 
   // Handle return from Mercado Pago Checkout Pro after card payment
   useEffect(() => {
@@ -208,8 +208,8 @@ export default function Home() {
           </h1>
           <div className="flex items-center gap-2 sm:gap-3 text-sm text-gray-600 flex-shrink-0">
             {saveStatus === 'saving' && <span className="text-emerald-600 animate-pulse hidden sm:inline">{t('common.loading')}</span>}
-            {saveStatus === 'saved' && <span className="text-emerald-600 hidden sm:inline">{t('common.saved') || 'Salvo'}</span>}
-            {saveStatus === 'error' && <span className="text-red-500 hidden sm:inline">{t('common.error') || 'Erro'}</span>}
+            {saveStatus === 'saved' && <span className="text-emerald-600 hidden sm:inline">{t('common.saved')}</span>}
+            {saveStatus === 'error' && <span className="text-red-500 hidden sm:inline">{t('common.error')}</span>}
             <LanguageSelector />
             <span className="hidden xs:inline">Etapa {currentStepIndex + 1} de {steps.length}</span>
           </div>
@@ -322,7 +322,7 @@ export default function Home() {
         plan={selectedPlan || undefined}
       />
 
-      <ExitSurvey paid={isPaid} />
+      <ExitSurvey paid={isPaid} isAnyModalOpen={showLeadCapture || showCheckout} />
     </div>
   )
 }

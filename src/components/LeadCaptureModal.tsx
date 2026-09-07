@@ -228,18 +228,19 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
     } catch (err) {
       clearTimeout(timeoutId)
 
-      let userMessage = 'Salvamento demorou, mas você pode continuar. Tentaremos novamente em segundo plano.'
-      if (err instanceof Error && err.name !== 'AbortError') {
-        userMessage = `${err.message}. Você pode continuar; tentaremos salvar novamente.`
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Timeout — show error, don't advance. User can retry.
+        if (mountedRef.current) setError('O salvamento demorou muito. Verifique sua conexão e tente novamente.')
+        console.error('LeadCaptureModal: save timed out', { context: { name, email } })
+      } else if (err instanceof Error) {
+        if (mountedRef.current) setError(`${err.message}. Tente novamente.`)
+        console.error('LeadCaptureModal: save failed', { error: err, context: { name, email } })
+      } else {
+        if (mountedRef.current) setError('Erro ao salvar seus dados. Tente novamente.')
+        console.error('LeadCaptureModal: unknown save error', { err, context: { name, email } })
       }
 
-      if (mountedRef.current) setError(userMessage)
-      console.error('LeadCaptureModal: synchronous save failed, advancing user', { error: err, context: { name, email } })
-
-      // Avança o usuário imediatamente e tenta salvar em segundo plano
-      onComplete({ name, email, whatsapp })
-
-      // Retry em segundo plano (sobrevive a desmontagem do modal graças ao keepalive)
+      // Retry in background (survives unmount via keepalive) but do NOT advance user
       backgroundSave(payload, 3)
     } finally {
       if (mountedRef.current) setIsLoading(false)

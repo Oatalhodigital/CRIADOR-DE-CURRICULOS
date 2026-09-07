@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { trackEvent } from '@/lib/gtag';
 
@@ -16,11 +16,16 @@ const REASONS = [
 const STORAGE_KEY = 'exit_survey_dismissed';
 const INACTIVITY_MS = 45000;
 
-export default function ExitSurvey({ paid }: { paid: boolean }) {
+export default function ExitSurvey({ paid, isAnyModalOpen }: { paid: boolean; isAnyModalOpen?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [comment, setComment] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const isAnyModalOpenRef = useRef(isAnyModalOpen);
+
+  useEffect(() => {
+    isAnyModalOpenRef.current = isAnyModalOpen;
+  }, [isAnyModalOpen]);
 
   useEffect(() => {
     if (paid) return;
@@ -36,6 +41,7 @@ export default function ExitSurvey({ paid }: { paid: boolean }) {
 
     const showOnce = () => {
       if (shown) return;
+      if (isAnyModalOpenRef.current) return;
       shown = true;
       setOpen(true);
     };

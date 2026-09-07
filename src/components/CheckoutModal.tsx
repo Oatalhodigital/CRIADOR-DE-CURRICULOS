@@ -143,6 +143,37 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const isMountedRef = useRef(true);
   const purchaseTrackedRef = useRef(false);
   const pixInFlightRef = useRef(false);
+  const onPaymentSuccessRef = useRef(onPaymentSuccess);
+
+  useEffect(() => {
+    onPaymentSuccessRef.current = onPaymentSuccess;
+  }, [onPaymentSuccess]);
+
+  const PAYMENT_ID_KEY = 'checkout_payment_id';
+  const PAYMENT_METHOD_KEY = 'checkout_payment_method';
+
+  const savePaymentId = (id: string, method: string) => {
+    try {
+      sessionStorage.setItem(PAYMENT_ID_KEY, id);
+      sessionStorage.setItem(PAYMENT_METHOD_KEY, method);
+    } catch { /* sessionStorage may be disabled */ }
+  };
+
+  const clearPaymentId = () => {
+    try {
+      sessionStorage.removeItem(PAYMENT_ID_KEY);
+      sessionStorage.removeItem(PAYMENT_METHOD_KEY);
+    } catch { /* ignore */ }
+  };
+
+  const getSavedPaymentId = (): { id: string; method: string } | null => {
+    try {
+      const id = sessionStorage.getItem(PAYMENT_ID_KEY);
+      const method = sessionStorage.getItem(PAYMENT_METHOD_KEY);
+      if (id) return { id, method: method || 'pix' };
+    } catch { /* ignore */ }
+    return null;
+  };
 
   const resetPaymentState = () => {
     setPaymentData(null);
@@ -225,6 +256,28 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
+  const firePurchaseEvents = (paymentId: string) => {
+    if (purchaseTrackedRef.current || isPurchaseTracked(paymentId)) return;
+    purchaseTrackedRef.current = true;
+    markPurchaseTracked(paymentId);
+    trackPurchase({
+      transactionId: paymentId,
+      value: amount,
+      paymentMethod,
+      plan,
+    });
+    trackMetaPurchase({
+      transactionId: paymentId,
+      value: amount,
+      paymentMethod,
+      plan,
+    });
+    trackGoogleAdsConversion({
+      transactionId: paymentId,
+      value: amount,
+    });
+  };
+
   const completePaymentAndDownload = useCallback(
     async (paymentId: string) => {
       setDeliveryError(null);
@@ -256,29 +309,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             }
             wasConfirmed = true;
 
-            // Dispara eventos de purchase SOMENTE após confirmação real do
-            // backend e com deduplicação por paymentId.
-            if (!purchaseTrackedRef.current && !isPurchaseTracked(paymentId)) {
-              purchaseTrackedRef.current = true;
-              markPurchaseTracked(paymentId);
-              trackPurchase({
-                transactionId: paymentId,
-                value: amount,
-                paymentMethod,
-                plan,
-              });
-              trackMetaPurchase({
-                transactionId: paymentId,
-                value: amount,
-                paymentMethod,
-                plan,
-              });
-              trackGoogleAdsConversion({
-                transactionId: paymentId,
-                value: amount,
-              });
-            }
-
             try {
               await downloadPdf(data.downloadUrl, 2);
             } catch (downloadErr) {
@@ -293,7 +323,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 );
               }
             }
-            onPaymentSuccess(paymentId);
+            onPaymentSuccessRef.current(paymentId);
             return;
           }
 
@@ -307,10 +337,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       if (isMountedRef.current) {
         setDeliveryError(lastError || 'Não foi possível preparar o download automático.');
-        onPaymentSuccess(paymentId);
+        onPaymentSuccessRef.current(paymentId);
       }
     },
-    [resume, onPaymentSuccess, amount, paymentMethod, plan]
+    [resume, amount, paymentMethod, plan]
   );
 
   const createPayment = useCallback(async () => {
@@ -338,6 +368,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const data = await createPixPayment(amount, resume.personalInfo.email, resume.id, plan);
       if (isMountedRef.current) {
         setPaymentData(data);
+        savePaymentId(data.id, 'pix');
       }
     } catch (err) {
       if (isMountedRef.current) {
@@ -381,6 +412,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         if (!isMountedRef.current) return;
 
         setCardPaymentId(result.id);
+        savePaymentId(result.id, 'card');
 
         console.log('[CheckoutModal] card payment created', {
           paymentId: result.id,
@@ -390,6 +422,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         if (result.status === 'approved') {
           setPaymentStatus('approved');
+          firePurchaseEvents(result.id);
           completePaymentAndDownload(result.id);
           return;
         }
@@ -422,7 +455,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }
       }
     },
-    [amount, resume.personalInfo.email, resume.id, onPaymentSuccess, plan]
+    [amount, resume.personalInfo.email, resume.id, plan]
   );
 
   useEffect(() => {
@@ -436,6 +469,37 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       resetPaymentState();
+
+      // Recovery: check for payment from a previous session/reload
+      const saved = getSavedPaymentId();
+      if (saved) {
+        const checkSavedPayment = async () => {
+          try {
+            const isApproved = saved.method === 'pix'
+              ? await checkPaymentStatus(saved.id)
+              : await checkCardPaymentStatus(saved.id);
+
+            if (!isMountedRef.current) return;
+
+            if (isApproved) {
+              setPaymentStatus('approved');
+              firePurchaseEvents(saved.id);
+              completePaymentAndDownload(saved.id);
+            } else if (saved.method === 'pix') {
+              // Still pending — show verify button with saved ID
+              setPaymentData({ id: saved.id, qr_code: '', qr_code_base64: '' });
+            } else {
+              setCardPaymentId(saved.id);
+            }
+          } catch (err) {
+            console.error('[CheckoutModal] recovery check failed', err);
+            clearPaymentId();
+          }
+        };
+        checkSavedPayment();
+      }
+    } else {
+      clearPaymentId();
     }
   }, [isOpen]);
 
@@ -458,7 +522,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
             clearInterval(interval);
             if (isMountedRef.current) {
-              setError('Tempo de espera pelo pagamento excedido. Verifique manualmente.');
+              setError('Tempo de espera pelo pagamento excedido. Se você já pagou, toque em "Verificar Pagamento". Para suporte: suporte@curriculorapidocomia.com.br');
             }
             return;
           }
@@ -470,6 +534,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           if (isApproved) {
             setPaymentStatus('approved');
+            firePurchaseEvents(paymentData.id);
             completePaymentAndDownload(paymentData.id);
             clearInterval(interval);
           }
@@ -483,7 +548,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [paymentStatus, paymentData, paymentMethod, onPaymentSuccess]);
+  }, [paymentStatus, paymentData, paymentMethod]);
 
   const checkCardPaymentStatus = async (paymentId: string): Promise<boolean> => {
     const res = await fetchWithTimeout(`/api/payment/status/${paymentId}`);
@@ -513,6 +578,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       if (isApproved) {
         setPaymentStatus('approved');
+        firePurchaseEvents(paymentId);
         completePaymentAndDownload(paymentId);
       } else {
         setError(
