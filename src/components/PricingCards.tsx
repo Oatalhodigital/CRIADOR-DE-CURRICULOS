@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Check, Crown, FileText } from 'lucide-react'
+import { useLanguage } from '@/context/LanguageContext'
 
 type PlanId = 'single' | 'weekly' | 'monthly'
 
@@ -19,42 +20,43 @@ interface Plan {
   badge?: string
 }
 
-const plans: Plan[] = [
-  {
-    id: 'single',
-    name: 'Básico',
-    price: 7.90,
-    description: '1 download do currículo',
-    features: ['1 download do currículo em PDF', 'Layout 100% ATS-friendly', 'Download disponível por 30 dias'],
-  },
-  {
-    id: 'weekly',
-    name: 'Intermediário',
-    price: 12.49,
-    description: '2 downloads do currículo',
-    features: ['2 downloads do currículo em PDF', 'Layout 100% ATS-friendly', 'Downloads disponíveis por 30 dias'],
-    highlighted: true,
-    badge: 'MAIS VENDIDO',
-  },
-  {
-    id: 'monthly',
-    name: 'Completo',
-    price: 17.90,
-    description: '3 downloads do currículo',
-    features: ['3 downloads do currículo em PDF', 'Layout 100% ATS-friendly', 'Downloads disponíveis por 30 dias'],
-  },
-]
-
 const formatPrice = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
 const PricingCards = ({ onSelectPlan }: PricingCardsProps) => {
+  const { t } = useLanguage()
+
+  const plans: Plan[] = [
+    {
+      id: 'single',
+      name: t('pricing.basic'),
+      price: 7.90,
+      description: t('pricing.basicDesc'),
+      features: [`1 ${t('pricing.featurePdf')}`, t('pricing.featureAts'), t('pricing.featureDays')],
+    },
+    {
+      id: 'weekly',
+      name: t('pricing.intermediate'),
+      price: 12.49,
+      description: t('pricing.intermediateDesc'),
+      features: [`2 ${t('pricing.featurePdf')}`, t('pricing.featureAts'), t('pricing.featureDays')],
+      highlighted: true,
+      badge: t('pricing.badgeBestSeller'),
+    },
+    {
+      id: 'monthly',
+      name: t('pricing.complete'),
+      price: 17.90,
+      description: t('pricing.completeDesc'),
+      features: [`3 ${t('pricing.featurePdf')}`, t('pricing.featureAts'), t('pricing.featureDays')],
+    },
+  ]
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-3">Escolha seu Plano</h2>
-        <p className="text-gray-600">Desbloqueie seu currículo otimizado por IA</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">{t('pricing.title')}</h2>
+        <p className="text-gray-600">{t('pricing.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -102,14 +104,14 @@ const PricingCards = ({ onSelectPlan }: PricingCardsProps) => {
                   : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
               }`}
             >
-              Selecionar
+              {t('pricing.select')}
             </button>
           </div>
         ))}
       </div>
 
       <div className="text-center text-sm text-gray-500 mt-6">
-        <p>Pagamento seguro via PIX ou Cartão • Sem assinaturas ocultas</p>
+        <p>{t('pricing.securePayment')}</p>
       </div>
     </div>
   )

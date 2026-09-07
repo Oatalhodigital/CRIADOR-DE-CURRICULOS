@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Clock, CheckCircle, AlertCircle, Download, Mail, Copy, Check } from 'lucide-react';
 import { useResume } from '../context/ResumeContext';
+import { useLanguage } from '@/context/LanguageContext';
 import CardPaymentBrick, { CardPaymentData, getMercadoPagoDeviceId } from './CardPaymentBrick';
 import { trackPurchase, trackGoogleAdsConversion } from '@/lib/gtag';
 import { trackMetaPurchase } from '@/lib/metaPixel';
@@ -127,6 +128,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   plan,
 }) => {
   const { resume } = useResume();
+  const { t } = useLanguage();
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [cardPaymentId, setCardPaymentId] = useState<string | null>(null);
@@ -154,22 +156,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const savePaymentId = (id: string, method: string) => {
     try {
-      sessionStorage.setItem(PAYMENT_ID_KEY, id);
-      sessionStorage.setItem(PAYMENT_METHOD_KEY, method);
-    } catch { /* sessionStorage may be disabled */ }
+      localStorage.setItem(PAYMENT_ID_KEY, id);
+      localStorage.setItem(PAYMENT_METHOD_KEY, method);
+    } catch { /* localStorage may be disabled */ }
   };
 
   const clearPaymentId = () => {
     try {
-      sessionStorage.removeItem(PAYMENT_ID_KEY);
-      sessionStorage.removeItem(PAYMENT_METHOD_KEY);
+      localStorage.removeItem(PAYMENT_ID_KEY);
+      localStorage.removeItem(PAYMENT_METHOD_KEY);
     } catch { /* ignore */ }
   };
 
   const getSavedPaymentId = (): { id: string; method: string } | null => {
     try {
-      const id = sessionStorage.getItem(PAYMENT_ID_KEY);
-      const method = sessionStorage.getItem(PAYMENT_METHOD_KEY);
+      const id = localStorage.getItem(PAYMENT_ID_KEY);
+      const method = localStorage.getItem(PAYMENT_METHOD_KEY);
       if (id) return { id, method: method || 'pix' };
     } catch { /* ignore */ }
     return null;
@@ -499,7 +501,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         checkSavedPayment();
       }
     } else {
-      clearPaymentId();
+      // Don't clear payment ID on close — allow recovery on next open or reload
     }
   }, [isOpen]);
 
@@ -583,8 +585,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       } else {
         setError(
           paymentMethod === 'pix'
-            ? 'Pagamento ainda não confirmado. Aguarde ou escaneie o QR Code novamente.'
-            : 'Pagamento ainda não confirmado. Pode levar alguns instantes; tente novamente.'
+            ? t('pricing.pendingPix')
+            : t('pricing.pendingCard')
         );
       }
     } catch (err) {
@@ -610,7 +612,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            {paymentStatus === 'approved' ? 'Pagamento Aprovado!' : 'Finalizar Pagamento'}
+            {paymentStatus === 'approved' ? t('pricing.approvedTitle') : t('pricing.checkoutTitle')}
           </h2>
           <p className="text-gray-600">
             {paymentStatus === 'approved'
@@ -671,15 +673,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         {!isLoading && paymentStatus !== 'approved' && paymentMethod === 'pix' && !paymentData && !pixConfirmed && (
           <div className="space-y-4">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-gray-700">
-              <p className="font-semibold text-emerald-800 mb-1">Pagamento via PIX</p>
-              <p>Toque no botão abaixo para gerar o QR Code e pagar na hora.</p>
+              <p className="font-semibold text-emerald-800 mb-1">{t('pricing.pixTitle')}</p>
+              <p>{t('pricing.pixDesc')}</p>
             </div>
             <button
               type="button"
               onClick={() => setPixConfirmed(true)}
               className="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2"
             >
-              Gerar QR Code PIX
+              {t('pricing.generateQr')}
             </button>
           </div>
         )}
@@ -724,7 +726,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
             <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 rounded-xl p-3">
               <Clock className="w-4 h-4 text-blue-600" />
-              <span>O pagamento é confirmado automaticamente em até 5 minutos</span>
+              <span>{t('pricing.autoConfirm')}</span>
             </div>
 
             <button
@@ -732,7 +734,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               disabled={isChecking}
               className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
-              {isChecking ? 'Verificando...' : 'Verificar Pagamento'}
+              {isChecking ? t('pricing.verifying') : t('pricing.verifyPayment')}
             </button>
           </div>
         )}
@@ -741,7 +743,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <div className="space-y-4">
             {amount <= 0 ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
-                Selecione um plano para habilitar o pagamento com cartão.
+                {t('pricing.cardSelectPlan')}
               </div>
             ) : !publicKey ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
@@ -783,10 +785,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Pagamento Aprovado!</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('pricing.approvedTitle')}</h3>
               <p className="text-sm text-gray-600">
                 {deliveryError
-                  ? 'Use o botão abaixo ou o link direto. Também enviamos o PDF por e-mail.'
+                  ? t('pricing.deliveryError')
                   : 'O download automático começou. Se não iniciar, use o botão abaixo.'}
               </p>
             </div>
@@ -822,7 +824,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   className="inline-flex items-center justify-center gap-2 w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition"
                 >
                   <Download className="w-5 h-5" />
-                  Baixar Currículo
+                  {t('pricing.downloadBtn')}
                 </button>
                 <a
                   href={downloadUrl}

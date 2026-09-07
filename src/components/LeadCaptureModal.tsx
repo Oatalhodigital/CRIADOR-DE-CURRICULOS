@@ -30,8 +30,11 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
 
   const mountedRef = useRef(true)
   const resolvedRef = useRef(false)
+  const submitInFlightRef = useRef(false)
+  const leadSavedRef = useRef(false)
 
   const STORAGE_KEY = 'leadCaptureForm'
+  const LEAD_SAVED_KEY = 'lead_saved_success'
 
   const getUserMessageForAuthError = (code: string, message: string): string => {
     if (code === 'auth/network-request-failed') {
@@ -196,12 +199,26 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       return
     }
 
+    // Prevent double-submit: if a request is already in flight or already saved, don't fire again
+    if (submitInFlightRef.current) {
+      console.log('LeadCaptureModal: submit already in flight, ignoring')
+      return
+    }
+    if (leadSavedRef.current) {
+      console.log('LeadCaptureModal: lead already saved, advancing directly')
+      onComplete({ name, email, whatsapp })
+      return
+    }
+
+    submitInFlightRef.current = true
     setIsLoading(true)
 
     const payload = { name, email, whatsapp, consentMarketing, gclid: getGclid() }
-    // Timeout de 7s no cliente (menor que o timeout server de 6s + margem de rede)
+
+    // Use a long timeout (15s) to avoid aborting before a slow server responds.
+    // The server saves to Firestore (primary) then fires Postgres/CAPI async.
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 7000)
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     try {
       const response = await fetch('/api/leads', {
@@ -218,20 +235,23 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
         throw new Error(errorData.error || 'Erro ao salvar seus dados')
       }
 
-      console.log('LeadCaptureModal: lead saved synchronously', { email })
+      console.log('LeadCaptureModal: lead saved successfully', { email })
+      leadSavedRef.current = true
       try {
+        sessionStorage.setItem(LEAD_SAVED_KEY, '1')
         sessionStorage.removeItem(STORAGE_KEY)
       } catch {
         /* ignore */
       }
-      onComplete({ name, email, whatsapp })
+      if (mountedRef.current) {
+        onComplete({ name, email, whatsapp })
+      }
     } catch (err) {
       clearTimeout(timeoutId)
 
       if (err instanceof Error && err.name === 'AbortError') {
-        // Timeout — show error, don't advance. User can retry.
-        if (mountedRef.current) setError('O salvamento demorou muito. Verifique sua conexão e tente novamente.')
-        console.error('LeadCaptureModal: save timed out', { context: { name, email } })
+        if (mountedRef.current) setError('O salvamento demorou mais que o esperado. Aguarde alguns segundos e tente novamente, ou use o login com Google.')
+        console.error('LeadCaptureModal: save timed out (15s)', { context: { name, email } })
       } else if (err instanceof Error) {
         if (mountedRef.current) setError(`${err.message}. Tente novamente.`)
         console.error('LeadCaptureModal: save failed', { error: err, context: { name, email } })
@@ -243,6 +263,7 @@ const LeadCaptureModal = ({ isOpen, onComplete }: LeadCaptureModalProps) => {
       // Retry in background (survives unmount via keepalive) but do NOT advance user
       backgroundSave(payload, 3)
     } finally {
+      submitInFlightRef.current = false
       if (mountedRef.current) setIsLoading(false)
     }
   }

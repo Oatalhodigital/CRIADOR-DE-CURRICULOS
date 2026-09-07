@@ -83,6 +83,18 @@ export default function Home() {
     }
   }, [])
 
+  // P0-3: Payment recovery on page load — check localStorage for pending payment
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const savedPaymentId = localStorage.getItem('checkout_payment_id')
+      if (savedPaymentId && !showLanding) {
+        // User has a pending or completed payment — open checkout to trigger recovery
+        setShowCheckout(true)
+      }
+    } catch { /* ignore */ }
+  }, [showLanding])
+
   useEffect(() => {
     try {
       sessionStorage.setItem(

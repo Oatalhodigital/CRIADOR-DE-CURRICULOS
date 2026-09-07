@@ -173,15 +173,15 @@ export default function SearchableSelect({
 
       if (canOpenBelow || (!canOpenAbove && spaceBelow >= spaceAbove)) {
         setDropdownStyle({
-          top: rect.bottom + window.scrollY,
-          left: rect.left + window.scrollX,
+          top: rect.bottom + 4,
+          left: rect.left,
           width: rect.width,
           maxHeight: Math.min(maxHeight, Math.max(120, spaceBelow)),
         });
       } else {
         setDropdownStyle({
-          bottom: window.innerHeight - rect.top - window.scrollY,
-          left: rect.left + window.scrollX,
+          top: Math.max(8, rect.top - Math.min(maxHeight, spaceAbove) - 4),
+          left: rect.left,
           width: rect.width,
           maxHeight: Math.min(maxHeight, Math.max(120, spaceAbove)),
         });
@@ -195,7 +195,7 @@ export default function SearchableSelect({
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [isOpen]);
+  }, [isOpen, search]);
 
   return (
     <div ref={containerRef} className="relative w-full">

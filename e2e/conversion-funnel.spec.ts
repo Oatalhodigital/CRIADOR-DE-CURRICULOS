@@ -209,22 +209,15 @@ test.describe('Conversion Funnel — full E2E', () => {
       page.getByRole('button', { name: 'Verificar Pagamento' })
     ).toBeVisible({ timeout: 15000 });
 
-    // Verify payment ID was saved to sessionStorage
-    const savedId = await page.evaluate(() => sessionStorage.getItem('checkout_payment_id'));
+    // Verify payment ID was saved to localStorage (migrated from sessionStorage)
+    const savedId = await page.evaluate(() => localStorage.getItem('checkout_payment_id'));
     expect(savedId).toBe('pay-recovery-test');
 
     // Reload the page (simulates user closing/refreshing after paying)
     await page.reload();
 
-    // Navigate back to checkout — the modal should re-open via plan selection
-    // The funnel state is persisted in sessionStorage, so we should be at pricing step
-    // Re-select the plan to open checkout modal
-    const pricingCard = page.locator('div.rounded-2xl').filter({ hasText: 'Básico' });
-    if (await pricingCard.isVisible()) {
-      await pricingCard.getByRole('button', { name: 'Selecionar' }).click();
-    }
-
-    // The recovery check should detect the saved payment and show approved state
+    // The page-level recovery effect should auto-open checkout modal
+    // Wait for the approved state to appear (status mock returns approved on 2nd call)
     await expect(
       page.getByRole('heading', { name: 'Pagamento Aprovado!' }).first()
     ).toBeVisible({ timeout: 15000 });
@@ -308,5 +301,110 @@ test.describe('Conversion Funnel — full E2E', () => {
     expect(personalInfoVisible).toBe(false);
 
     expect(leadAttempts).toBeGreaterThanOrEqual(1);
+  });
+
+  test('lead save with slow response (8s) still advances — no premature timeout', async ({ page }) => {
+    await page.route('https://fonts.googleapis.com/**', (route) => route.abort('blockedbyclient'));
+    await page.route('https://fonts.gstatic.com/**', (route) => route.abort('blockedbyclient'));
+    await page.route('https://va.vercel-scripts.com/**', (route) => route.abort('blockedbyclient'));
+
+    // Mock lead save with 8s delay (simulates slow server)
+    let leadCallCount = 0;
+    await page.route('**/api/leads', async (route) => {
+      leadCallCount++;
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, leadId: 'lead-slow-test' }),
+      });
+    });
+
+    await page.goto('/', { waitUntil: 'load' });
+    await page.getByRole('button', { name: /Criar( Meu)? Currículo/i }).first().click();
+
+    await expect(
+      page.getByRole('heading', { name: 'Vamos Começar!' })
+    ).toBeVisible();
+
+    await page.locator('#lead-name').fill('Usuário Teste');
+    await page.locator('#lead-email').fill('teste@exemplo.com');
+    await page.locator('#lead-whatsapp').fill('11999999999');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    // With 15s timeout, the modal should eventually advance (not show timeout error)
+    // Wait up to 12s for the personal info form to appear
+    await expect(
+      page.getByRole('heading', { name: 'Informações Pessoais' })
+    ).toBeVisible({ timeout: 12000 });
+
+    // Only one call should have been made (no duplicate submissions)
+    expect(leadCallCount).toBe(1);
+  });
+
+  test('dropdown suggestions stay anchored below input after scroll', async ({ page }) => {
+    await page.route('https://fonts.googleapis.com/**', (route) => route.abort('blockedbyclient'));
+    await page.route('https://fonts.gstatic.com/**', (route) => route.abort('blockedbyclient'));
+    await page.route('https://va.vercel-scripts.com/**', (route) => route.abort('blockedbyclient'));
+    await page.route('**/api/leads', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, id: 'lead-123' }),
+      });
+    });
+
+    await page.goto('/', { waitUntil: 'load' });
+    await page.getByRole('button', { name: /Criar( Meu)? Currículo/i }).first().click();
+
+    await page.locator('#lead-name').fill('Usuário Teste');
+    await page.locator('#lead-email').fill('teste@exemplo.com');
+    await page.locator('#lead-whatsapp').fill('11999999999');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await expect(
+      page.getByRole('heading', { name: 'Informações Pessoais' })
+    ).toBeVisible();
+
+    // Fill personal info and navigate to experience step
+    await page.getByPlaceholder('Seu nome completo', { exact: true }).fill('Usuário Teste');
+    await page.getByPlaceholder('seu@email.com', { exact: true }).fill('teste@exemplo.com');
+    await page.getByPlaceholder('(00) 00000-0000', { exact: true }).fill('11999999999');
+    await page.route(`https://viacep.com.br/ws/01001000/json/`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ cep: '01001-000', logradouro: 'Praça da Sé', bairro: 'Sé', localidade: 'São Paulo', uf: 'SP', ibge: '3550308' }),
+      });
+    });
+    const cep = page.getByPlaceholder('00000-000', { exact: true });
+    for (const char of '01001000') { await cep.type(char, { delay: 50 }); }
+    await page.getByRole('combobox').nth(0).selectOption('SP');
+    await page.getByRole('button', { name: 'Próximo' }).click();
+    await page.waitForTimeout(300);
+
+    // Scroll down to make the experience form lower on the page
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await page.waitForTimeout(200);
+
+    // Click on the cargo combobox input
+    const cargoInput = page.getByRole('combobox', { name: /Cargo/i }).or(page.locator('input[placeholder="Seu cargo na empresa"]'));
+    await cargoInput.click();
+    await cargoInput.fill('A');
+    await page.waitForTimeout(500);
+
+    // The dropdown listbox should be visible
+    const listbox = page.locator('[role="listbox"]').first();
+    await expect(listbox).toBeVisible({ timeout: 5000 });
+
+    // Get the bounding rects of both the input and the dropdown
+    const inputRect = await cargoInput.boundingBox();
+    const dropdownRect = await listbox.boundingBox();
+
+    // The dropdown top should be close to the input bottom (within ~10px)
+    expect(dropdownRect).not.toBeNull();
+    expect(inputRect).not.toBeNull();
+    const gap = dropdownRect!.y - (inputRect!.y + inputRect!.height);
+    expect(Math.abs(gap)).toBeLessThan(20);
   });
 });

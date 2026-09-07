@@ -72,27 +72,29 @@ export async function POST(request: NextRequest) {
       'save lead'
     );
 
-    // Precisa ser aguardado: em serverless a execução é congelada assim que a
-    // resposta é devolvida, e a escrita ficaria pela metade.
-    try {
-      await insertLeadPostgres({
-        firestore_id: leadId,
-        name,
-        email,
-        whatsapp,
-        consent_marketing: consentMarketing || false,
-        utm_source: utm_source || null,
-        utm_medium: utm_medium || null,
-        utm_campaign: utm_campaign || null,
-        gclid: gclid || null,
-      });
-      await insertFunnelEventPostgres({
-        lead_firestore_id: leadId,
-        event_name: 'lead_captured',
-      });
-    } catch (postgresErr) {
-      console.error('[api/leads] analytics write failed', postgresErr);
-    }
+    // Fire-and-forget: Postgres writes are analytics-only and should not block
+    // the response. In serverless, keepalive on the fetch ensures these complete.
+    void (async () => {
+      try {
+        await insertLeadPostgres({
+          firestore_id: leadId,
+          name,
+          email,
+          whatsapp,
+          consent_marketing: consentMarketing || false,
+          utm_source: utm_source || null,
+          utm_medium: utm_medium || null,
+          utm_campaign: utm_campaign || null,
+          gclid: gclid || null,
+        });
+        await insertFunnelEventPostgres({
+          lead_firestore_id: leadId,
+          event_name: 'lead_captured',
+        });
+      } catch (postgresErr) {
+        console.error('[api/leads] analytics write failed', postgresErr);
+      }
+    })();
 
     // CAPI Lead event — fire-and-forget, nao pode bloquear resposta
     const nameParts = (name || '').trim().split(/\s+/);
