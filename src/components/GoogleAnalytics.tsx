@@ -1,5 +1,5 @@
 import Script from 'next/script'
-import { GA_MEASUREMENT_ID } from '@/lib/gtag'
+import { GA_MEASUREMENT_ID, GOOGLE_ADS_ID, isGoogleAdsEnabled } from '@/lib/gtag'
 
 /**
  * Loads GA4 only when NEXT_PUBLIC_GA_MEASUREMENT_ID is configured,
@@ -21,6 +21,7 @@ export default function GoogleAnalytics() {
           window.gtag = gtag;
           gtag('js', new Date());
           gtag('config', '${GA_MEASUREMENT_ID}');
+          ${isGoogleAdsEnabled() ? `gtag('config', '${GOOGLE_ADS_ID}');` : ''}
         `}
       </Script>
     </>

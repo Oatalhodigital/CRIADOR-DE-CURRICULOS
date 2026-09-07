@@ -61,7 +61,25 @@ Ou seja, o próprio Meta está descartando eventos do Pixel — o algoritmo de a
 ### 4. Tag de conversão do Google Ads nunca foi verificada
 **Sintoma:** a ação de conversão "Compra" existe no Google Ads mas a tag nunca verificou nenhum disparo real, deixando a campanha com status "Qualificada (limitada)".
 
-**Corrija:** ligar o disparo do evento `purchase` do item 2 também à tag de conversão do Google Ads (pode ser via importação do evento do GA4 vinculado ao Google Ads, que é o caminho mais simples, ou via Google Ads Conversion Tracking direto). Confirme com o dono do produto qual caminho ele já configurou no painel do Ads antes de mexer no código, para não duplicar a implementação.
+**Já decidido — use o caminho direto (não importar do GA4 também, para não contar a mesma venda duas vezes):** o Google Ads enviou o snippet oficial para esta conta, com o ID de conversão real. Hoje o site só carrega `gtag/js?id=G-FQCJ664XNB` (o tag do GA4) — confirmei isso ao vivo no console, não existe nenhuma referência a `AW-18434491826` no HTML nem em nenhum script carregado. Implemente:
+
+1. Adicionar em todas as páginas, dentro de `<head>`, o comando de config do Google Ads **usando a mesma tag `gtag.js` que já existe** (não carregue um segundo `<script src="googletagmanager.com/gtag/js?id=...">`, só adicione mais um `gtag('config', ...)` na tag que já está lá):
+   ```html
+   gtag('config', 'AW-18434491826');
+   ```
+2. No exato momento em que o pagamento é confirmado como aprovado (o mesmo lugar do item 1 e do item 2 — idealmente resolvido nesse único ponto do código), disparar:
+   ```js
+   gtag('event', 'conversion', {
+     'send_to': 'AW-18434491826/FyTzCPCd-e8cELKLoNZE',
+     'value': /* valor real do plano pago: 7.90, 12.49 ou 17.90 */,
+     'currency': 'BRL',
+     'transaction_id': /* ID único do pedido/pagamento, nunca vazio */,
+   });
+   ```
+   O `transaction_id` é obrigatório e precisa ser único por pedido (ex: o mesmo `id` que já volta de `/api/payment/create`) — sem isso, o Google Ads pode contar a mesma venda mais de uma vez ou não contar nenhuma.
+3. **Não** configure também a importação da conversão via GA4 → Google Ads para esta mesma ação de "Compra". Se isso já tiver sido feito em algum momento, desative-a ou marque como secundária, para essa tag direta ficar como a única fonte primária de conversão de compra no Google Ads.
+
+**Critério de aceite:** depois de uma compra de teste aprovada, o evento de conversão aparece no Google Ads (Metas → Conversões → Compra) como recebido, com o valor certo, e a campanha deixa de mostrar "Qualificada (limitada)" por falta de verificação da tag.
 
 ---
 

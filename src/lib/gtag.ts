@@ -1,8 +1,10 @@
 export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || ''
-export const GOOGLE_ADS_CONVERSION_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID || ''
+export const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || 'AW-18434491826'
+export const GOOGLE_ADS_CONVERSION_LABEL = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL || 'FyTzCPCd-e8cELKLoNZE'
+export const GOOGLE_ADS_CONVERSION_ID = `${GOOGLE_ADS_ID}/${GOOGLE_ADS_CONVERSION_LABEL}`
 
 export const isGaEnabled = () => Boolean(GA_MEASUREMENT_ID)
-export const isGoogleAdsEnabled = () => Boolean(GOOGLE_ADS_CONVERSION_ID)
+export const isGoogleAdsEnabled = () => Boolean(GOOGLE_ADS_ID)
 
 type GtagParams = Record<string, string | number | boolean | undefined>
 
