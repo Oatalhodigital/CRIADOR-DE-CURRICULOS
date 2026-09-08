@@ -10,7 +10,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 20000): Promise<Response> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(new Error('Tempo limite excedido ao baixar o PDF.')), timeoutMs);
   return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
 };
 
@@ -73,7 +73,11 @@ export async function downloadPdf(url: string, retries = 2): Promise<void> {
       setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       return;
     } catch (err: any) {
-      lastError = err instanceof Error ? err.message : String(err);
+      if (err?.name === 'AbortError') {
+        lastError = 'Tempo limite excedido ao baixar o PDF. Tente novamente.';
+      } else {
+        lastError = err instanceof Error ? err.message : String(err);
+      }
 
       const isNetworkError = err instanceof TypeError || err?.name === 'AbortError' || lastError.toLowerCase().includes('network');
       if (!isNetworkError || attempt > retries) break;

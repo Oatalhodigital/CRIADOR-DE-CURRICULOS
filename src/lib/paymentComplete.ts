@@ -147,68 +147,70 @@ export async function finalizePaymentDelivery({
 
   const downloadUrl = `${getAppUrl()}/api/download/${mpPaymentId}`;
 
-  let emailSent = false;
-  let emailError: string | null = null;
-  let attachmentSent = false;
-
-  if (payerEmail) {
-    try {
-      // Gera o PDF em servidor para anexar ao e-mail, garantindo a "segunda via"
-      // independentemente do download no navegador.
-      let pdfBuffer: Buffer | null = null;
-      const resumeToRender = snapshot || order?.resume_snapshot;
-      if (resumeToRender) {
-        try {
-          pdfBuffer = await withTimeout(
-            generateResumePdfBuffer(resumeToRender as Resume),
-            15000,
-            'pdf-generation'
-          );
-        } catch (pdfErr) {
-          console.error('[paymentComplete] PDF generation for e-mail failed', {
-            error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr),
-            mpPaymentId,
-          });
-        }
-      }
-
-      const emailResult = await sendPaymentConfirmationEmail({
-        to: payerEmail,
-        paymentId: mpPaymentId,
-        plan: order?.plan || 'unknown',
-        downloadUrl,
-        pdfBuffer,
-      });
-
-      emailSent = emailResult.success;
-      attachmentSent = 'attachmentSent' in emailResult ? Boolean(emailResult.attachmentSent) : false;
-
-      if (!emailResult.success && emailResult.error) {
-        emailError = emailResult.error;
-        console.error('[paymentComplete] e-mail not sent', { error: emailResult.error, mpPaymentId, payerEmail: payerEmail?.replace(/@.*$/, '@...') });
-      } else if (emailResult.success) {
-        const resendId = emailResult.data?.data?.id || null;
-        console.log('[paymentComplete] e-mail delivered', { mpPaymentId, payerEmail: payerEmail?.replace(/@.*$/, '@...'), attachmentSent, resendId });
-      }
-    } catch (err) {
-      console.error('[paymentComplete] unexpected e-mail error', { err, mpPaymentId, payerEmail });
-      emailError = err instanceof Error ? err.message : 'Erro inesperado ao enviar e-mail';
-    }
-  }
-
-  await insertFunnelEventPostgres({
-    lead_firestore_id: order?.lead_firestore_id || order?.resume_firestore_id || null,
-    event_name: 'payment_delivered',
-    metadata: { mp_payment_id: mpPaymentId, email_sent: emailSent, email_error: emailError, plan: order?.plan },
-  });
-
-  const amountReais = order?.amount_cents ? order.amount_cents / 100 : 0;
-  const userEmail = payerEmail || resume?.personalInfo?.email;
-  const userPhone = resume?.personalInfo?.phone;
-
-  // Fire-and-forget: a falha do CAPI nao pode bloquear o download.
-  // Guarda de dedup: so envia se capi_purchase_sent_at for null.
+  // Fire-and-forget: PDF generation + email + CAPI + funnel event
+  // These must NOT block the response to the client.
   void (async () => {
+    let emailSent = false;
+    let emailError: string | null = null;
+    let attachmentSent = false;
+
+    if (payerEmail) {
+      try {
+        let pdfBuffer: Buffer | null = null;
+        const resumeToRender = snapshot || order?.resume_snapshot;
+        if (resumeToRender) {
+          try {
+            pdfBuffer = await withTimeout(
+              generateResumePdfBuffer(resumeToRender as Resume),
+              30000,
+              'pdf-generation'
+            );
+          } catch (pdfErr) {
+            console.error('[paymentComplete] PDF generation for e-mail failed', {
+              error: pdfErr instanceof Error ? pdfErr.message : String(pdfErr),
+              mpPaymentId,
+            });
+          }
+        }
+
+        const emailResult = await sendPaymentConfirmationEmail({
+          to: payerEmail,
+          paymentId: mpPaymentId,
+          plan: order?.plan || 'unknown',
+          downloadUrl,
+          pdfBuffer,
+        });
+
+        emailSent = emailResult.success;
+        attachmentSent = 'attachmentSent' in emailResult ? Boolean(emailResult.attachmentSent) : false;
+
+        if (!emailResult.success && emailResult.error) {
+          emailError = emailResult.error;
+          console.error('[paymentComplete] e-mail not sent', { error: emailResult.error, mpPaymentId, payerEmail: payerEmail?.replace(/@.*$/, '@...') });
+        } else if (emailResult.success) {
+          const resendId = emailResult.data?.data?.id || null;
+          console.log('[paymentComplete] e-mail delivered', { mpPaymentId, payerEmail: payerEmail?.replace(/@.*$/, '@...'), attachmentSent, resendId });
+        }
+      } catch (err) {
+        console.error('[paymentComplete] unexpected e-mail error', { err, mpPaymentId, payerEmail });
+        emailError = err instanceof Error ? err.message : 'Erro inesperado ao enviar e-mail';
+      }
+    }
+
+    try {
+      await insertFunnelEventPostgres({
+        lead_firestore_id: order?.lead_firestore_id || order?.resume_firestore_id || null,
+        event_name: 'payment_delivered',
+        metadata: { mp_payment_id: mpPaymentId, email_sent: emailSent, email_error: emailError, plan: order?.plan },
+      });
+    } catch (err) {
+      console.error('[paymentComplete] funnel event insert failed', { error: err, mpPaymentId });
+    }
+
+    const amountReais = order?.amount_cents ? order.amount_cents / 100 : 0;
+    const userEmail = payerEmail || resume?.personalInfo?.email;
+    const userPhone = resume?.personalInfo?.phone;
+
     try {
       const alreadySent = await isCapiPurchaseSent(mpPaymentId);
       if (alreadySent) {
@@ -234,9 +236,9 @@ export async function finalizePaymentDelivery({
   return {
     success: true,
     downloadUrl,
-    emailSent,
-    attachmentSent,
-    emailError,
+    emailSent: false,
+    attachmentSent: false,
+    emailError: null,
     payerEmail,
     downloadsAllowed: order?.downloads_allowed || 1,
     downloadsUsed: order?.downloads_used || 0,

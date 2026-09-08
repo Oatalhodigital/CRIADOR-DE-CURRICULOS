@@ -17,7 +17,7 @@ interface PaymentData {
 
 const fetchWithTimeout = (url: string, options: RequestInit = {}, timeoutMs = 10000): Promise<Response> => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(new Error('Tempo limite excedido.')), timeoutMs);
 
   return fetch(url, { ...options, signal: controller.signal })
     .finally(() => clearTimeout(timeoutId));
@@ -313,7 +313,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 email: resume.personalInfo.email,
               }),
             },
-            15000
+            30000
           );
 
           const data = await res.json().catch(() => ({}));
@@ -344,8 +344,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           }
 
           lastError = data.error || `Tentativa ${attempt} falhou`;
-        } catch (err) {
-          lastError = err instanceof Error ? err.message : String(err);
+        } catch (err: any) {
+          if (err?.name === 'AbortError') {
+            lastError = 'Tempo limite excedido ao preparar o download. Tente novamente.';
+          } else {
+            lastError = err instanceof Error ? err.message : String(err);
+          }
         }
 
         if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
@@ -764,7 +768,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {!isLoading && paymentStatus !== 'approved' && paymentMethod === 'card' && (
           <div className="space-y-4">
-            {amount <= 0 ? (
+            {(amount > 0 ? amount : (restoredAmount ?? 0)) <= 0 ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
                 {t('pricing.cardSelectPlan')}
               </div>
@@ -783,7 +787,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
                 <CardPaymentBrick
                   publicKey={publicKey}
-                  amount={amount}
+                  amount={amount > 0 ? amount : (restoredAmount ?? 0)}
                   email={resume.personalInfo.email}
                   onSubmit={handleCardSubmit}
                   onError={handleCardError}

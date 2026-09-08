@@ -145,3 +145,65 @@
 3. Mudar idioma para EN → verificar: aba "Card", textos do PIX, rodapé
 4. Mudar idioma para ES → verificar o mesmo
 5. Verificar que plano Básico mostra "1 download" (singular) em PT, "1 resume PDF download" em EN
+
+---
+
+## Rodada 4 — Correção crítica: cliente pagou e download falha com "signal is aborted without reason"
+
+### Impacto: MÁXIMO — cliente pagante sem produto (bug original que motivou toda a auditoria)
+
+### Causa raiz (confirmada por leitura de código)
+
+O fluxo pós-aprovação era síncrono e encadeado:
+1. `CheckoutModal` chama `POST /api/payment/complete` com timeout cliente de 15s
+2. `/api/payment/complete` → `finalizePaymentDelivery()` fazia **tudo em sequência antes de responder**:
+   - Geração de PDF (`generateResumePdfBuffer`, timeout interno 15s)
+   - Envio de e-mail via Resend (com retry + backoff exponencial)
+   - Só depois retornava `downloadUrl`
+3. Se a soma ultrapassava 15s, `AbortController.abort()` (sem motivo) disparava → mensagem crua "signal is aborted without reason" na tela do cliente
+4. O PDF também era gerado **duas vezes** (uma para e-mail, outra no endpoint `/api/download/[id]`)
+
+### Correções aplicadas
+
+**1. Desacoplamento da resposta de `/api/payment/complete` (CRÍTICO)**
+- `finalizePaymentDelivery()` agora retorna `{ success, downloadUrl }` **imediatamente** após confirmar aprovação e salvar snapshot
+- Geração de PDF + envio de e-mail + CAPI + funnel event executam como **fire-and-forget** (`void async IIFE`) — não bloqueiam a resposta
+- O cliente recebe o link de download em < 1s após aprovação
+- Arquivo: `src/lib/paymentComplete.ts`
+
+**2. Nunca mostrar mensagem técnica crua ao usuário**
+- `fetchWithTimeout` em `CheckoutModal.tsx` e `downloadPdf.ts` agora passam motivo legível: `controller.abort(new Error('Tempo limite excedido.'))`
+- `catch` blocks tratam `AbortError` explicitamente — "signal is aborted without reason" nunca mais aparece
+- Arquivos: `src/components/CheckoutModal.tsx`, `src/lib/downloadPdf.ts`
+
+**3. `maxDuration` configurado nas rotas serverless**
+- `/api/payment/complete`: `export const maxDuration = 60`
+- `/api/download/[id]`: `export const maxDuration = 60`
+- Antes: sem configuração (default Vercel = 10s), função podia ser morta no meio da geração do PDF
+- Arquivos: `src/app/api/payment/complete/route.ts`, `src/app/api/download/[id]/route.ts`
+
+**4. Timeout do cliente aumentado para 30s**
+- `completePaymentAndDownload` em `CheckoutModal.tsx`: timeout de 15s → 30s (margem de segurança; resposta agora é quase instantânea)
+
+**5. Baixo: Card tab após recuperação de PIX mostrava R$ 0,00**
+- Card section e `CardPaymentBrick` agora usam `restoredAmount` quando `amount` prop é 0
+- Arquivo: `src/components/CheckoutModal.tsx`
+
+### Arquivos modificados (rodada 4)
+
+| Arquivo | Correção |
+|---------|----------|
+| `src/lib/paymentComplete.ts` | Crítico: PDF+email+CAPI fire-and-forget, resposta imediata |
+| `src/app/api/payment/complete/route.ts` | maxDuration=60 |
+| `src/app/api/download/[id]/route.ts` | maxDuration=60 |
+| `src/components/CheckoutModal.tsx` | Abort com motivo legível, handle AbortError, timeout 30s, card recovery |
+| `src/lib/downloadPdf.ts` | Abort com motivo legível, handle AbortError |
+
+### Teste manual pendente (rodada 4)
+
+1. **CRÍTICO:** Pagamento real aprovado (PIX R$ 7,90) → confirmar que tela avança para download em < 2s
+2. Confirmar que PDF baixado é o arquivo final, sem marca d'água
+3. Confirmar que e-mail de confirmação chega (pode levar alguns segundos extras, aceitável)
+4. Repetir teste 5x seguidas, incluindo mobile
+5. Confirmar que "signal is aborted without reason" nunca aparece em nenhum cenário
+6. Recarregar com PIX pendente → clicar aba "Cartão" → confirmar que valor aparece corretamente

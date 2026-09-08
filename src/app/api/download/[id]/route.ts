@@ -5,6 +5,8 @@ import { generateResumePdfBuffer } from '@/lib/pdf';
 import { sendPaymentConfirmationEmail, getAppUrl } from '@/lib/email';
 import { Resume } from '@/types/resume';
 
+export const maxDuration = 60;
+
 function isBrowserNavigation(request: NextRequest): boolean {
   const secFetchDest = request.headers.get('sec-fetch-dest');
   if (secFetchDest) {
