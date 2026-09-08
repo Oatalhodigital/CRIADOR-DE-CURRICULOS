@@ -30,11 +30,23 @@ export async function GET(
 
     const result = await withTimeout(payment.get({ id }), 10000, 'payment status');
 
-    return NextResponse.json({
+    const response: Record<string, unknown> = {
       id: String(result.id),
       status: result.status,
       approved: result.status === 'approved',
-    });
+    };
+
+    // Return PIX data for recovery after reload — only when pending
+    if (result.status === 'pending' || result.status === 'in_process') {
+      response.amount = result.transaction_amount ?? null;
+      const pixData = (result as any).point_of_interaction?.transaction_data;
+      if (pixData) {
+        response.qr_code = pixData.qr_code || '';
+        response.qr_code_base64 = pixData.qr_code_base64 || '';
+      }
+    }
+
+    return NextResponse.json(response);
   } catch (error: any) {
     console.error('Payment status error:', { error, timestamp: new Date().toISOString() });
 

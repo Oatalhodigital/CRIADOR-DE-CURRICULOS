@@ -97,3 +97,51 @@
 - **Meta Business Manager:** Confirmar se a conta de anúncios está marcada como categoria especial de emprego
 - **Google Ads:** Não configurar importação de conversão via GA4 para a mesma ação "Compra" (usar apenas a tag direta `AW-18434491826/FyTzCPCd-e8cELKLoNZE`)
 - **Limpeza:** Remover registros de teste do banco (leads "QA"/"Verificacao"/"teste", e-mails @example.com, PIX pendente)
+
+---
+
+## Rodada 3 — Ajuste fino (pós-teste ao vivo em produção)
+
+### Alto — Recuperação de PIX após reload não mostra código/valor
+
+**Causa raiz:** `/api/payment/status/:id` devolvia apenas `{id, status, approved}` — sem `amount`, `qr_code` ou `qr_code_base64`. O `CheckoutModal` na recuperação setava `paymentData` com strings vazias, resultando em "Total: R$ 0,00" e "QR Code indisponível" com código PIX vazio.
+
+**Correções:**
+- **Servidor (`/api/payment/status/:id`):** Quando o pagamento está `pending` ou `in_process`, agora retorna também `amount` (de `transaction_amount`) e `qr_code`/`qr_code_base64` (de `point_of_interaction.transaction_data`).
+- **Cliente (`CheckoutModal`):** `checkPaymentStatus` agora retorna `PaymentStatusResponse` com todos os campos. A recovery usa esses dados para restaurar `paymentData` com o QR code e código PIX reais. Adicionado `restoredAmount` para exibir o valor correto quando `amount` prop é 0.
+- **Polling e handleCheckStatus** atualizados para usar a nova interface.
+
+### Baixo-1 — Aba "Cartão" não traduz em EN
+
+**Correção:** CheckoutModal agora usa `t('payment.cardTab')` em vez de string fixa "Cartão". As chaves já existiam no i18n (`payment.cardTab` = "Card" em EN, "Tarjeta" em ES).
+
+### Baixo-2 — Textos da seção PIX não traduzidos
+
+**Correção:** Adicionadas 11 chaves de i18n na seção `pricing` (PT/EN/ES): `pixQrUnavailable`, `pixCodeLabel`, `copyPixCode`, `copied`, `generatingQr`, `tryAgain`, `openPdfNewTab`, `emailSent`, `autoDownloadStarted`, `paymentIdNotFound`, `pollTimeout`. CheckoutModal agora usa `t()` para todos esses textos.
+
+### Baixo-3 — Rodapé só em português
+
+**Correção:** Adicionada seção `footer` no i18n (PT/EN/ES) com 7 chaves: `brand`, `company`, `support`, `terms`, `privacy`, `refund`, `copyright`. `Footer.tsx` convertido para client component com `useLanguage()`. Movido para dentro do `LanguageProvider` no layout.
+
+### Baixo-4 — Pluralização "1 downloads"
+
+**Correção:** Adicionada chave `featurePdfSingular` no i18n (PT/EN/ES). `PricingCards` usa `featurePdfSingular` para 1 download, `featurePdf` (plural) para 2+.
+
+### Arquivos modificados (rodada 3)
+
+| Arquivo | Correção |
+|---------|----------|
+| `src/app/api/payment/status/[id]/route.ts` | Alto: retornar amount + PIX data quando pending |
+| `src/components/CheckoutModal.tsx` | Alto: recovery com dados reais; Baixo-1/2: i18n de todos os textos |
+| `src/components/PricingCards.tsx` | Baixo-4: singular/plural |
+| `src/components/Footer.tsx` | Baixo-3: i18n + client component |
+| `src/app/layout.tsx` | Baixo-3: Footer dentro do LanguageProvider |
+| `src/lib/i18n.ts` | Todas as novas chaves (pricing + footer, PT/EN/ES) |
+
+### Teste manual pendente (rodada 3)
+
+1. Gerar PIX → recarregar página (F5) → confirmar que valor e código PIX aparecem corretos
+2. Confirmar que dá para escanear/pagar pelo QR code recuperado
+3. Mudar idioma para EN → verificar: aba "Card", textos do PIX, rodapé
+4. Mudar idioma para ES → verificar o mesmo
+5. Verificar que plano Básico mostra "1 download" (singular) em PT, "1 resume PDF download" em EN

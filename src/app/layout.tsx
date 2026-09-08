@@ -59,8 +59,8 @@ export default function RootLayout({
           <ResumeProvider>
             {children}
           </ResumeProvider>
+          <Footer />
         </LanguageProvider>
-        <Footer />
         <Analytics />
         <GoogleAnalytics />
         <MetaPixel />

@@ -32,7 +32,7 @@ const PricingCards = ({ onSelectPlan }: PricingCardsProps) => {
       name: t('pricing.basic'),
       price: 7.90,
       description: t('pricing.basicDesc'),
-      features: [`1 ${t('pricing.featurePdf')}`, t('pricing.featureAts'), t('pricing.featureDays')],
+      features: [`1 ${t('pricing.featurePdfSingular')}`, t('pricing.featureAts'), t('pricing.featureDays')],
     },
     {
       id: 'weekly',

@@ -93,15 +93,27 @@ const searchPaymentByReference = async (leadId?: string): Promise<SearchPaymentR
   return res.json();
 };
 
-const checkPaymentStatus = async (paymentId: string): Promise<boolean> => {
+interface PaymentStatusResponse {
+  approved: boolean;
+  amount?: number | null;
+  qr_code?: string;
+  qr_code_base64?: string;
+}
+
+const checkPaymentStatus = async (paymentId: string): Promise<PaymentStatusResponse> => {
   const res = await fetchWithTimeout(`/api/payment/status/${paymentId}`);
 
   if (!res.ok) {
-    return false;
+    return { approved: false };
   }
 
   const data = await res.json();
-  return data.approved === true;
+  return {
+    approved: data.approved === true,
+    amount: data.amount,
+    qr_code: data.qr_code,
+    qr_code_base64: data.qr_code_base64,
+  };
 };
 
 const POLL_INTERVAL_MS = 5000;
@@ -141,6 +153,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [deliveryError, setDeliveryError] = useState<string | null>(null);
+  const [restoredAmount, setRestoredAmount] = useState<number | null>(null);
   const pollCountRef = useRef(0);
   const isMountedRef = useRef(true);
   const purchaseTrackedRef = useRef(false);
@@ -186,6 +199,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setDownloadUrl(null);
     setEmailSent(false);
     setDeliveryError(null);
+    setRestoredAmount(null);
     setPixConfirmed(false);
     pollCountRef.current = 0;
     purchaseTrackedRef.current = false;
@@ -477,19 +491,28 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
       if (saved) {
         const checkSavedPayment = async () => {
           try {
-            const isApproved = saved.method === 'pix'
+            const statusResult = saved.method === 'pix'
               ? await checkPaymentStatus(saved.id)
-              : await checkCardPaymentStatus(saved.id);
+              : { approved: await checkCardPaymentStatus(saved.id) };
 
             if (!isMountedRef.current) return;
 
-            if (isApproved) {
+            if (statusResult.approved) {
               setPaymentStatus('approved');
               firePurchaseEvents(saved.id);
               completePaymentAndDownload(saved.id);
             } else if (saved.method === 'pix') {
-              // Still pending — show verify button with saved ID
-              setPaymentData({ id: saved.id, qr_code: '', qr_code_base64: '' });
+              // Still pending — restore QR code and PIX code from API response
+              setPaymentData({
+                id: saved.id,
+                qr_code: statusResult.qr_code || '',
+                qr_code_base64: statusResult.qr_code_base64 || '',
+              });
+              setPixConfirmed(true);
+              // Restore amount if the API returned it
+              if (statusResult.amount && statusResult.amount > 0) {
+                setRestoredAmount(statusResult.amount);
+              }
             } else {
               setCardPaymentId(saved.id);
             }
@@ -524,17 +547,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           if (pollCountRef.current >= MAX_POLL_ATTEMPTS) {
             clearInterval(interval);
             if (isMountedRef.current) {
-              setError('Tempo de espera pelo pagamento excedido. Se você já pagou, toque em "Verificar Pagamento". Para suporte: suporte@curriculorapidocomia.com.br');
+              setError(t('pricing.pollTimeout'));
             }
             return;
           }
 
           pollCountRef.current += 1;
-          const isApproved = await checkPaymentStatus(paymentData.id);
+          const statusResult = await checkPaymentStatus(paymentData.id);
 
           if (!isMountedRef.current) return;
 
-          if (isApproved) {
+          if (statusResult.approved) {
             setPaymentStatus('approved');
             firePurchaseEvents(paymentData.id);
             completePaymentAndDownload(paymentData.id);
@@ -570,15 +593,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
     try {
       const paymentId = paymentMethod === 'pix' ? paymentData?.id : cardPaymentId;
       if (!paymentId) {
-        setError('Identificador do pagamento não encontrado. Tente novamente.');
+        setError(t('pricing.paymentIdNotFound'));
         return;
       }
 
-      const isApproved = await (paymentMethod === 'pix'
+      const statusResult = await (paymentMethod === 'pix'
         ? checkPaymentStatus(paymentId)
-        : checkCardPaymentStatus(paymentId));
+        : Promise.resolve({ approved: await checkCardPaymentStatus(paymentId) }));
 
-      if (isApproved) {
+      if (statusResult.approved) {
         setPaymentStatus('approved');
         firePurchaseEvents(paymentId);
         completePaymentAndDownload(paymentId);
@@ -616,8 +639,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </h2>
           <p className="text-gray-600">
             {paymentStatus === 'approved'
-              ? 'Seu currículo está pronto para download'
-              : `Total: ${formatCurrency(amount)}`}
+              ? t('payment.modalSubtitleApproved')
+              : `Total: ${formatCurrency(amount > 0 ? amount : (restoredAmount ?? 0))}`}
           </p>
         </div>
 
@@ -641,7 +664,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              Cartão
+              {t('payment.cardTab')}
             </button>
           </div>
         )}
@@ -649,7 +672,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
         {isLoading && paymentMethod === 'pix' && (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4" />
-            <p className="text-gray-600">Gerando QR Code...</p>
+            <p className="text-gray-600">{t('pricing.generatingQr')}</p>
           </div>
         )}
 
@@ -663,7 +686,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   onClick={createPayment}
                   className="mt-3 text-sm font-semibold text-red-700 underline hover:text-red-800"
                 >
-                  Tentar novamente
+                  {t('pricing.tryAgain')}
                 </button>
               )}
             </div>
@@ -698,12 +721,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             ) : (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-sm text-gray-600">
-                QR Code indisponível. Use o código PIX abaixo.
+                {t('pricing.pixQrUnavailable')}
               </div>
             )}
 
             <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-              <p className="text-xs text-gray-500">Código PIX (copie e cole):</p>
+              <p className="text-xs text-gray-500">{t('pricing.pixCodeLabel')}</p>
               <p className="text-xs text-gray-700 break-all font-mono">
                 {paymentData.qr_code}
               </p>
@@ -714,11 +737,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               >
                 {pixCopied ? (
                   <>
-                    <Check className="w-4 h-4" /> Copiado!
+                    <Check className="w-4 h-4" /> {t('pricing.copied')}
                   </>
                 ) : (
                   <>
-                    <Copy className="w-4 h-4" /> Copiar código PIX
+                    <Copy className="w-4 h-4" /> {t('pricing.copyPixCode')}
                   </>
                 )}
               </button>
@@ -747,7 +770,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             ) : !publicKey ? (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
-                <p className="font-semibold mb-1">Configuração pendente</p>
+                <p className="font-semibold mb-1">{t('payment.cardMissingKey')}</p>
                 <p>
                   A chave pública do Mercado Pago (NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY) não está configurada.
                   Adicione-a nas variáveis de ambiente para habilitar o formulário de cartão.
@@ -756,7 +779,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
             ) : (
               <>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-gray-600">
-                  Preencha os dados do cartão abaixo. A transação é processada com segurança pelo Mercado Pago.
+                  {t('payment.cardInstructions')}
                 </div>
                 <CardPaymentBrick
                   publicKey={publicKey}
@@ -771,7 +794,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     disabled={isChecking}
                     className="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold hover:bg-emerald-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    {isChecking ? 'Verificando...' : 'Já paguei — Verificar'}
+                    {isChecking ? t('pricing.verifying') : t('payment.verifyPayment')}
                   </button>
                 )}
               </>
@@ -789,13 +812,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <p className="text-sm text-gray-600">
                 {deliveryError
                   ? t('pricing.deliveryError')
-                  : 'O download automático começou. Se não iniciar, use o botão abaixo.'}
+                  : t('pricing.autoDownloadStarted')}
               </p>
             </div>
             {emailSent && (
               <div className="flex items-center justify-center gap-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg py-2">
                 <Mail className="w-4 h-4" />
-                <span>E-mail de confirmação enviado</span>
+                <span>{t('pricing.emailSent')}</span>
               </div>
             )}
             {deliveryError && (
@@ -832,7 +855,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 w-full bg-white border-2 border-green-600 text-green-700 py-3 rounded-xl font-semibold hover:bg-green-50 transition"
                 >
-                  Abrir PDF em nova aba
+                  {t('pricing.openPdfNewTab')}
                 </a>
               </>
             ) : deliveryError ? (
@@ -850,7 +873,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({
               onClick={onClose}
               className="w-full bg-gray-100 text-gray-900 py-3 rounded-xl font-semibold hover:bg-gray-200 transition"
             >
-              Fechar
+              {t('common.close')}
             </button>
           </div>
         )}
