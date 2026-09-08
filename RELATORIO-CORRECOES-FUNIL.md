@@ -207,3 +207,38 @@ O fluxo pós-aprovação era síncrono e encadeado:
 4. Repetir teste 5x seguidas, incluindo mobile
 5. Confirmar que "signal is aborted without reason" nunca aparece em nenhum cenário
 6. Recarregar com PIX pendente → clicar aba "Cartão" → confirmar que valor aparece corretamente
+
+---
+
+## Rodada 4 (extra) — Vídeo demonstrativo na homepage
+
+### Adição
+
+Inserido vídeo demonstrativo de ~16s na seção hero da landing page, logo abaixo do headline/CTA "Criar Meu Currículo Agora". O vídeo mostra o fluxo real do produto (preenchimento de dados, prévia em tempo real, avanço pelas etapas, tela de "Currículo pronto!").
+
+### Implementação
+
+- **Arquivos:** `public/videos/demo-curriculo.mp4` (H.264, ~600KB, faststart) + `public/videos/demo-poster.jpg`
+- **Componente:** `src/components/DemoVideo.tsx` — video element com `autoPlay`, `muted`, `loop`, `playsInline`, `preload="metadata"`, `poster` fallback
+- **IntersectionObserver:** vídeo só toca quando visível no viewport, pausa ao sair — economiza CPU/dados em mobile
+- **Botão play/pause discreto:** canto inferior direito, para acessibilidade
+- **Sem CLS:** container com `aspect-ratio: 16/9` reserva o espaço antes do vídeo carregar
+- **Responsivo:** em mobile o vídeo aparece empilhado abaixo do CTA (não ao lado)
+
+### Arquivos modificados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/DemoVideo.tsx` | Novo componente de vídeo com IntersectionObserver |
+| `src/components/LandingPage.tsx` | Import e renderização do DemoVideo na hero section |
+| `public/videos/demo-curriculo.mp4` | Arquivo de vídeo (novo) |
+| `public/videos/demo-poster.jpg` | Imagem de capa/poster (novo) |
+
+### Teste manual pendente
+
+1. Abrir home em iPhone/Safari iOS → confirmar autoplay mudo em loop
+2. Abrir em Android/Chrome → confirmar mesmo comportamento
+3. Rolar para longe do vídeo → confirmar que pausa (DevTools Performance)
+4. Rolar de volta → confirmar que volta a tocar
+5. Lighthouse mobile antes/depois → confirmar que Performance não caiu
+6. Confirmar que não há layout shift (CLS) quando o vídeo carrega

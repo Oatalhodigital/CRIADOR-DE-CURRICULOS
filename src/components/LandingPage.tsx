@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import LanguageSelector from './LanguageSelector';
 import Logo from './Logo';
+import DemoVideo from './DemoVideo';
 
 interface LandingPageProps {
   onStart: () => void;
@@ -82,6 +83,8 @@ const LandingPage = ({ onStart }: LandingPageProps) => {
               {t('landing.heroSub')}
             </span>
           </div>
+
+          <DemoVideo />
         </div>
       </section>
 
