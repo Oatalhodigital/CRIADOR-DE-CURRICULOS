@@ -160,7 +160,21 @@ Retorne APENAS o texto melhorado, sem explicações ou comentários adicionais.`
     if (status === 401 || status === 403) {
       return NextResponse.json({ error: 'Chave da OpenAI inválida ou sem permissão.' }, { status });
     }
-    if (status === 429 || error?.code === 'rate_limit_exceeded') {
+    if (status === 429 || error?.code === 'rate_limit_exceeded' || error?.code === 'insufficient_quota') {
+      const isQuotaExhausted = error?.code === 'insufficient_quota' || (typeof error?.message === 'string' && error.message.includes('insufficient_quota'));
+      if (isQuotaExhausted) {
+        console.error('[api/ai/enhance] OPENAI_QUOTA_EXHAUSTED — billing limit reached, AI feature unavailable until credit is added', {
+          code: error?.code,
+          status,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        console.warn('[api/ai/enhance] OPENAI_RATE_LIMITED — transient rate limit', {
+          code: error?.code,
+          status,
+          timestamp: new Date().toISOString(),
+        });
+      }
       return NextResponse.json({ error: 'Limite de requisições da OpenAI atingido. Tente novamente mais tarde.' }, { status: 429 });
     }
     if (status >= 500) {
