@@ -16,16 +16,21 @@ const REASONS = [
 const STORAGE_KEY = 'exit_survey_dismissed';
 const INACTIVITY_MS = 45000;
 
-export default function ExitSurvey({ paid, isAnyModalOpen }: { paid: boolean; isAnyModalOpen?: boolean }) {
+export default function ExitSurvey({ paid, isAnyModalOpen, isBuilderActive }: { paid: boolean; isAnyModalOpen?: boolean; isBuilderActive?: boolean }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [comment, setComment] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const isAnyModalOpenRef = useRef(isAnyModalOpen);
+  const isBuilderActiveRef = useRef(isBuilderActive);
 
   useEffect(() => {
     isAnyModalOpenRef.current = isAnyModalOpen;
   }, [isAnyModalOpen]);
+
+  useEffect(() => {
+    isBuilderActiveRef.current = isBuilderActive;
+  }, [isBuilderActive]);
 
   useEffect(() => {
     if (paid) return;
@@ -39,16 +44,20 @@ export default function ExitSurvey({ paid, isAnyModalOpen }: { paid: boolean; is
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
     let shown = false;
 
-    const showOnce = () => {
+    const showOnce = (isInactivityTrigger = false) => {
       if (shown) return;
       if (isAnyModalOpenRef.current) return;
+      // Suppress inactivity-based trigger when user is in the builder flow —
+      // they may be thinking/reading without interacting, not actually leaving.
+      // Exit-intent triggers (mouseleave, visibilitychange) still fire.
+      if (isInactivityTrigger && isBuilderActiveRef.current) return;
       shown = true;
       setOpen(true);
     };
 
     const resetInactivity = () => {
       if (inactivityTimer) clearTimeout(inactivityTimer);
-      inactivityTimer = setTimeout(showOnce, INACTIVITY_MS);
+      inactivityTimer = setTimeout(() => showOnce(true), INACTIVITY_MS);
     };
 
     // Desktop: mouseleave para a barra do navegador

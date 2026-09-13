@@ -334,7 +334,7 @@ export default function Home() {
         plan={selectedPlan || undefined}
       />
 
-      <ExitSurvey paid={isPaid} isAnyModalOpen={showLeadCapture || showCheckout} />
+      <ExitSurvey paid={isPaid} isAnyModalOpen={showLeadCapture || showCheckout} isBuilderActive={!showLanding} />
     </div>
   )
 }
