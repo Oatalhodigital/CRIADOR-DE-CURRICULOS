@@ -242,3 +242,62 @@ Inserido vídeo demonstrativo de ~16s na seção hero da landing page, logo abai
 4. Rolar de volta → confirmar que volta a tocar
 5. Lighthouse mobile antes/depois → confirmar que Performance não caiu
 6. Confirmar que não há layout shift (CLS) quando o vídeo carrega
+
+---
+
+## Rodada 5 — CORS no download, ExitSurvey, OpenAI 429, Secrets Vercel
+
+### Tarefa 1 — CRÍTICO: CORS/domain mismatch no download do PDF
+
+**Causa raiz:** `getAppUrl()` em `src/lib/email.ts` tinha fallback `https://xn--currculorapidocomia-o1b.com.br` (sem `www.`), mas a produção serve em `www.`. O `finalizePaymentDelivery` retornava uma URL absoluta ao cliente. O `downloadPdf.ts` já converte URLs same-host para relativas via `toSameOriginPath()`, mas como o host não batia (`www.` vs sem `www.`), a URL absoluta persistia → fetch cross-origin → preflight CORS → redirect bloqueado pelo navegador.
+
+**Correção:**
+- `finalizePaymentDelivery` agora retorna URL **relativa** (`/api/download/{id}`) ao cliente — elimina CORS na raiz
+- URL absoluta mantida apenas para server-side (e-mail, crons)
+- Fallback de `getAppUrl()` corrigido para `https://www.xn--currculorapidocomia-o1b.com.br`
+- Fallback de `getSiteUrl()` em `src/lib/seo.ts` corrigido igualmente
+- Fallback hardcoded em `src/app/api/payment/preference/route.ts` corrigido de `criador-de-curriculos.vercel.app` para `www.xn--currculorapidocomia-o1b.com.br`
+- Aviso adicionado quando `NEXT_PUBLIC_APP_URL` não inclui `www.`
+
+**Arquivos:** `src/lib/paymentComplete.ts`, `src/lib/email.ts`, `src/lib/seo.ts`, `src/app/api/payment/preference/route.ts`
+
+### Tarefa 2 — ExitSurvey interrompendo formulário
+
+**Causa raiz:** `showOnce()` era compartilhado entre o timer de inatividade (45s) e os gatilhos de intenção de saída (`mouseleave`, `visibilitychange`). A flag `isAnyModalOpen` só cobria modais explícitos, não o fluxo do builder.
+
+**Correção:**
+- Adicionada prop `isBuilderActive` ao `ExitSurvey`
+- `showOnce()` agora recebe `isInactivityTrigger` — timer de inatividade é suprimido quando builder está ativo
+- Gatilhos de saída real (`mouseleave`, `visibilitychange`) continuam funcionando normalmente
+- `page.tsx` passa `isBuilderActive={!showLanding}`
+
+**Arquivos:** `src/components/ExitSurvey.tsx`, `src/app/page.tsx`
+
+### Tarefa 3 — OpenAI 429 (cota esgotada)
+
+**Estado anterior:** O frontend já era non-blocking (mantém texto original, mostra "A IA está indisponível agora"). O SDK da OpenAI já faz retry com backoff para rate limits transitórios.
+
+**Melhorias:**
+- Logs server-side agora usam tags identificáveis: `OPENAI_QUOTA_EXHAUSTED` (cota esgotada, persistente) vs `OPENAI_RATE_LIMITED` (rate limit transitório)
+- Detectado `insufficient_quota` além de `rate_limit_exceeded`
+- Aplicado a ambas as rotas: `/api/ai/enhance` e `/api/ai/summary`
+
+**Arquivos:** `src/app/api/ai/enhance/route.ts`, `src/app/api/ai/summary/route.ts`
+
+### Tarefa 4 — Variáveis sensíveis na Vercel
+
+Recriadas via API da Vercel como tipo `sensitive` (antes `encrypted`):
+- `MERCADO_PAGO_ACCESS_TOKEN`
+- `OPENAI_API_KEY`
+- `FIREBASE_SERVICE_ACCOUNT_KEY`
+
+Todas com targets `production, preview, development`. Valores preservados (sem rotação).
+
+### Teste manual pendente (rodada 5)
+
+1. **CRÍTICO:** Pagamento real (Pix) em produção no domínio `www.` → confirmar download sem erro CORS no console
+2. Recarregar página com pedido já pago → confirmar re-download funciona
+3. Abrir formulário do currículo, ficar 45s+ sem interagir (sem trocar aba) → confirmar que pesquisa não aparece
+4. Mover mouse para barra do navegador ou trocar de aba → confirmar que pesquisa aparece
+5. Clicar "Melhorar com IA" → confirmar mensagem clara e fluxo continua
+6. Verificar painel da Vercel: as 3 variáveis aparecem como "Sensitive" sem aviso "Precisa de Atenção"
