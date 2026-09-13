@@ -145,7 +145,10 @@ export async function finalizePaymentDelivery({
     await setOrderPayerEmail(mpPaymentId, payerEmail);
   }
 
-  const downloadUrl = `${getAppUrl()}/api/download/${mpPaymentId}`;
+  // Absolute URL for server-side use (email links, crons) — must include www.
+  const absoluteDownloadUrl = `${getAppUrl()}/api/download/${mpPaymentId}`;
+  // Relative URL for client-side fetch — eliminates CORS/mismatch risk entirely
+  const clientDownloadUrl = `/api/download/${mpPaymentId}`;
 
   // Fire-and-forget: PDF generation + email + CAPI + funnel event
   // These must NOT block the response to the client.
@@ -177,7 +180,7 @@ export async function finalizePaymentDelivery({
           to: payerEmail,
           paymentId: mpPaymentId,
           plan: order?.plan || 'unknown',
-          downloadUrl,
+          downloadUrl: absoluteDownloadUrl,
           pdfBuffer,
         });
 
@@ -235,7 +238,7 @@ export async function finalizePaymentDelivery({
 
   return {
     success: true,
-    downloadUrl,
+    downloadUrl: clientDownloadUrl,
     emailSent: false,
     attachmentSent: false,
     emailError: null,

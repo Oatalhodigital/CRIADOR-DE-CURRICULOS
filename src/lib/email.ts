@@ -25,7 +25,9 @@ export function getAppUrl(): string {
   // Domínio correto em punycode para currículorapidocomia.com.br.
   // O domínio sem acento (curriculorapidocomia.com.br) NUNCA teve DNS
   // configurado e quebra links/e-mails de download.
-  const fallback = 'https://xn--currculorapidocomia-o1b.com.br';
+  // IMPORTANTE: incluir www. porque a produção é servida com www. —
+  // sem isso, links absolutos geram mismatch de origem (CORS) no navegador.
+  const fallback = 'https://www.xn--currculorapidocomia-o1b.com.br';
   const envUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!envUrl) {
     console.warn('[getAppUrl] NEXT_PUBLIC_APP_URL não configurado; usando fallback', fallback);
@@ -33,6 +35,11 @@ export function getAppUrl(): string {
     console.error(
       '[getAppUrl] NEXT_PUBLIC_APP_URL parece usar o domínio sem acento; corrija para',
       fallback
+    );
+  } else if (envUrl.includes('xn--currculorapidocomia-o1b.com.br') && !envUrl.includes('www.')) {
+    console.warn(
+      '[getAppUrl] NEXT_PUBLIC_APP_URL não inclui www.; o domínio de produção é www.xn--currculorapidocomia-o1b.com.br —',
+      'isso pode causar erros de CORS em chamadas client-side. Recomendado:', fallback
     );
   }
   return envUrl || fallback;

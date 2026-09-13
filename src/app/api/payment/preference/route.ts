@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
               { id: 'pix' },
             ],
           },
-          notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://criador-de-curriculos.vercel.app'}/api/payment/webhook`,
+          notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.xn--currculorapidocomia-o1b.com.br'}/api/payment/webhook`,
         },
       }),
       15000,

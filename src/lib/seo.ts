@@ -3,7 +3,7 @@ import { professionOptions } from '@/data/professions'
 export function getSiteUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL
   if (envUrl) return envUrl.replace(/\/$/, '')
-  return 'https://xn--currculorapidocomia-o1b.com.br'
+  return 'https://www.xn--currculorapidocomia-o1b.com.br'
 }
 
 export function slugifyProfession(value: string): string {
